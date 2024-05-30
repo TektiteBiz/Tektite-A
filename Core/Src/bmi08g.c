@@ -174,7 +174,7 @@ int8_t bmi08g_init(struct bmi08x_dev *dev)
 				/* Store the chip ID in dev structure */
 				dev->gyro_chip_id = chip_id;
 			} else {
-				rslt = chip_id;
+				rslt = BMI08X_E_DEV_NOT_FOUND;
 			}
 		}
 	}
