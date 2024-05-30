@@ -27,9 +27,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <string.h>
-#include "bmi08x.h"
-#include "bmi088.h"
-#include "bmi088_stm32.h"
+#include <math.h>
+#include "BMI088.h"
 #include "MS5607SPI.h"
 #include "spif.h"
 /* USER CODE END Includes */
@@ -64,25 +63,7 @@ extern uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 // BMI088
-struct bmi08x_dev dev = {
-        .accel_id = ACCEL_CS_Pin,
-        .gyro_id = GYRO_CS_Pin,
-        .intf = BMI08X_SPI_INTF,
-        .read = &stm32_spi_read,//user_spi_read
-        .write = &stm32_spi_write,//user_spi_write
-        .delay_ms = &HAL_Delay,//user_delay_milli_sec
-		//.accel_cfg.odr = BMI08X_ACCEL_ODR_800_HZ,
-		//.accel_cfg.bw = BMI08X_ACCEL_BW_NORMAL,
-		//.accel_cfg.range = BMI088_ACCEL_RANGE_24G
-};
-
-struct bmi08x_int_cfg int_config;
-struct bmi08x_data_sync_cfg sync_cfg;
-int8_t rslt;
-struct bmi08x_sensor_data accel;
-struct bmi08x_sensor_data gyro;
-uint8_t data = 0;
-int count2=0;
+BMI088 imu;
 
 //MS5607
 struct MS5607UncompensatedValues baroRaw;
@@ -95,9 +76,9 @@ uint8_t testRead[4];
 SPIF_HandleTypeDef spif;
 
 void LEDWrite(int r, int g, int b) {
-	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, g);
+	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, b);
 	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, r);
-	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, b);
+	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, g);
 }
 void Error(char* err) {
 	while (1) {
@@ -109,82 +90,17 @@ void Error(char* err) {
 	}
 }
 
+void LEDInit() {
+	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
+	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
+}
 
 void BMI088Init() {
-	/* Initialize bmi088 sensors (accel & gyro)*/
-	rslt = bmi088_init(&dev);
-	if (rslt != BMI08X_OK) {
+	int res = BMI088_Init(&imu, &hspi1, ACCEL_CS_GPIO_Port, ACCEL_CS_Pin, GYRO_CS_GPIO_Port, GYRO_CS_Pin);
+	if (res != 0) {
 		Error("BMI088 Initialization Failure");
 	}
-
-	// Reset the accelerometer and wait for 1 ms - delay taken care inside the function
-	rslt = bmi08a_soft_reset(&dev);
-	if (rslt != BMI08X_OK) {
-		Error("BMI088 Initialization Failure");
-	}
-
-	// ! Max read/write length (maximum supported length is 32). To be set by the user
-	dev.read_write_len = 32;
-	// set accel power mode
-	dev.accel_cfg.power = BMI08X_ACCEL_PM_ACTIVE;
-	rslt = bmi08a_set_power_mode(&dev);
-	if (rslt != BMI08X_OK) {
-		Error("BMI088 Initialization Failure\n");
-	}
-	dev.gyro_cfg.power = BMI08X_GYRO_PM_NORMAL;
-	bmi08g_set_power_mode(&dev);
-	// API uploads the bmi08x config file onto the device and wait for 150ms to enable the data synchronization - delay taken care inside the function
-	rslt = bmi088_apply_config_file(&dev);
-	if (rslt != BMI08X_OK) {
-		Error("BMI088 Initialization Failure\n");
-	}
-	// assign accel range setting
-	dev.accel_cfg.range = BMI088_ACCEL_RANGE_24G;
-	// assign gyro range setting
-	dev.gyro_cfg.range = BMI08X_GYRO_RANGE_2000_DPS;
-	// ! Mode (0 = off, 1 = 400Hz, 2 = 1kHz, 3 = 2kHz)
-	sync_cfg.mode = BMI08X_ACCEL_DATA_SYNC_MODE_2000HZ;
-	rslt = bmi088_configure_data_synchronization(sync_cfg, &dev);
-	if (rslt != BMI08X_OK) {
-		Error("BMI088 Initialization Failure\n");
-	}
-
-	/*// set accel interrupt pin configuration
-	// configure host data ready interrupt
-	int_config.accel_int_config_1.int_channel = BMI08X_INT_CHANNEL_1;
-	int_config.accel_int_config_1.int_type = BMI08X_ACCEL_SYNC_INPUT;
-	int_config.accel_int_config_1.int_pin_cfg.output_mode = BMI08X_INT_MODE_PUSH_PULL;
-	int_config.accel_int_config_1.int_pin_cfg.lvl = BMI08X_INT_ACTIVE_HIGH;
-	int_config.accel_int_config_1.int_pin_cfg.enable_int_pin = BMI08X_ENABLE;
-
-	//configure Accel syncronization input interrupt pin
-	int_config.accel_int_config_2.int_channel = BMI08X_INT_CHANNEL_2;
-	int_config.accel_int_config_2.int_type = BMI08X_ACCEL_SYNC_DATA_RDY_INT;
-	int_config.accel_int_config_2.int_pin_cfg.output_mode = BMI08X_INT_MODE_PUSH_PULL;
-	int_config.accel_int_config_2.int_pin_cfg.lvl = BMI08X_INT_ACTIVE_HIGH;
-	int_config.accel_int_config_2.int_pin_cfg.enable_int_pin = BMI08X_ENABLE;
-
-	//set gyro interrupt pin configuration
-	int_config.gyro_int_config_1.int_channel = BMI08X_INT_CHANNEL_3;
-	int_config.gyro_int_config_1.int_type = BMI08X_GYRO_DATA_RDY_INT;
-	int_config.gyro_int_config_1.int_pin_cfg.enable_int_pin = BMI08X_ENABLE;
-	int_config.gyro_int_config_1.int_pin_cfg.lvl = BMI08X_INT_ACTIVE_HIGH;
-	int_config.gyro_int_config_1.int_pin_cfg.output_mode = BMI08X_INT_MODE_PUSH_PULL;
-
-	int_config.gyro_int_config_2.int_channel = BMI08X_INT_CHANNEL_4;
-	int_config.gyro_int_config_2.int_type = BMI08X_GYRO_DATA_RDY_INT;
-	int_config.gyro_int_config_2.int_pin_cfg.enable_int_pin = BMI08X_DISABLE;
-	int_config.gyro_int_config_2.int_pin_cfg.lvl = BMI08X_INT_ACTIVE_HIGH;
-	int_config.gyro_int_config_2.int_pin_cfg.output_mode = BMI08X_INT_MODE_PUSH_PULL;
-
-	// Enable synchronization interrupt pin
-	rslt = bmi088_set_data_sync_int_config(&int_config, &dev);
-	if (rslt != BMI08X_OK) {
-		char v[4];
-		sprintf(&v, "%d", rslt);
-		Error(&v[0]);
-		Error("BMI088 Initialization Failure\n");
-	}*/
 }
 
 void MS5607Init() {
@@ -235,9 +151,7 @@ int main(void)
   MX_TIM1_Init();
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
-  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
-  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
+  LEDInit();
   LEDWrite(255, 0, 0); // Initialize phase
 
   MS5607Init();
@@ -265,18 +179,14 @@ int main(void)
     /* USER CODE BEGIN 3 */
 
 	 LEDWrite(0, 0, 0);
-	 //bmi088_init(&dev);
-	 rslt = bmi088_get_synchronized_data(&accel, &gyro, &dev);
-	 if (rslt != BMI08X_OK) {
-		 Error("BMI088 Read Failure\n");
-	 }
+	 BMI088_ReadAccelerometer(&imu);
+	 BMI088_ReadGyroscope(&imu);
+
 
 	 MS5607UncompensatedRead(&baroRaw);
 	 MS5607Convert(&baroRaw, &baro);
 	 alt = (44330.0f * (1.0f - pow((double)baro.pressure / 101325.0f, 0.1902949f)));
-
-
-	 printf("ax:%d,ay:%d,az:%d,gx:%d,gy:%d,gz:%d,alt:%f,temp:%d,pressure:%d\n", accel.x, accel.y, accel.z, gyro.x, gyro.y, gyro.z, alt, baro.temperature, baro.pressure);
+	 printf("ax:%f,ay:%f,az:%f,gx:%f,gy:%f,gz:%f,alt:%f,temp:%d,pressure:%d\n", imu.acc_mps2[0], imu.acc_mps2[1], imu.acc_mps2[2], imu.gyr_rps[0], imu.gyr_rps[1], imu.gyr_rps[2], alt, baro.temperature, baro.pressure);
 
 	 HAL_Delay(25);
   }

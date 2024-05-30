@@ -1,308 +1,327 @@
-/**\mainpage
- * Copyright (C) 2017 - 2018 Bosch Sensortec GmbH
+#include "BMI088.h"
+
+/*
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * Redistributions of source code must retain the above copyright
- * notice, this list of conditions and the following disclaimer.
- *
- * Redistributions in binary form must reproduce the above copyright
- * notice, this list of conditions and the following disclaimer in the
- * documentation and/or other materials provided with the distribution.
- *
- * Neither the name of the copyright holder nor the names of the
- * contributors may be used to endorse or promote products derived from
- * this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
- * CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER
- * OR CONTRIBUTORS BE LIABLE FOR ANY
- * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
- * OR CONSEQUENTIAL DAMAGES(INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
- *
- * The information provided is believed to be accurate and reliable.
- * The copyright holder assumes no responsibility
- * for the consequences of use
- * of such information nor for any infringement of patents or
- * other rights of third parties which may result from its use.
- * No license is granted by implication or otherwise under any patent or
- * patent rights of the copyright holder.
- *
- * @file        bmi088.c
- * @date        24 Aug 2018
- * @version     1.2.0
+ * INITIALISATION
  *
  */
+uint8_t BMI088_Init(BMI088 *imu,
+				 SPI_HandleTypeDef *spiHandle,
+				 GPIO_TypeDef *csAccPinBank, uint16_t csAccPin,
+				 GPIO_TypeDef *csGyrPinBank, uint16_t csGyrPin) {
 
-/*! \file bmi088.c
- \brief Sensor Driver for BMI085 family of sensors */
-/****************************************************************************/
-/**\name        Header files
- ****************************************************************************/
-#include "bmi08x.h"
-#include "bmi088.h"
+	/* Store interface parameters in struct */
+	imu->spiHandle 		= spiHandle;
+	imu->csAccPinBank 	= csAccPinBank;
+	imu->csAccPin 		= csAccPin;
+	imu->csGyrPinBank 	= csGyrPinBank;
+	imu->csGyrPin 		= csGyrPin;
 
-#if BMI08X_FEATURE_BMI088 == 1
-/****************************************************************************/
-/** \name       Macros
- ****************************************************************************/
+	/* Clear DMA flags */
+	imu->readingAcc = 0;
+	imu->readingGyr = 0;
 
-/****************************************************************************/
-/**\name        Local structures
- ****************************************************************************/
+	uint8_t status = 0;
 
-/****************************************************************************/
-/*! Static Function Declarations
- ****************************************************************************/
-/*!
- * @brief This API is used to validate the device structure pointer for
- * null conditions.
- *
- * @param[in] dev : Structure instance of bmi08x_dev.
- *
- * @return Result of API execution status
- * @retval zero -> Success / -ve value -> Error
- */
-static int8_t null_ptr_check(const struct bmi08x_dev *dev);
-/****************************************************************************/
-/**\name        Extern Declarations
- ****************************************************************************/
-extern const uint8_t bmi08x_config_file[];
-/**\name        Globals
- ****************************************************************************/
+	/*
+	 *
+	 * ACCELEROMETER
+	 *
+	 */
 
-/****************************************************************************/
-/**\name        Function definitions
- ****************************************************************************/
-/*!
- *  @brief This API is the entry point for bmi088 sensors.
- *  It performs the selection of I2C/SPI read mechanism according to the
- *  selected interface and reads the chip-id of accel & gyro sensors.
- */
-int8_t bmi088_init(struct bmi08x_dev *dev)
-{
-	int8_t rslt;
-	/*initialize bmi088 accel sensor*/
-	rslt = bmi08a_init(dev);
+	/* Accelerometer requires rising edge on CSB at start-up to activate SPI */
+	HAL_GPIO_WritePin(imu->csAccPinBank, imu->csAccPin, GPIO_PIN_RESET);
+	HAL_Delay(1);
+	HAL_GPIO_WritePin(imu->csAccPinBank, imu->csAccPin, GPIO_PIN_SET);
+	HAL_Delay(50);
 
-	if (rslt == BMI08X_OK) {
-		/*initialize bmi088 gyro sensor*/
-		rslt = bmi08g_init(dev);
+	/* Perform accelerometer soft reset */
+	status += BMI088_WriteAccRegister(imu, BMI_ACC_SOFTRESET, 0xB6);
+	HAL_Delay(50);
+
+	/* Check chip ID */
+	uint8_t chipID;
+	status += BMI088_ReadAccRegister(imu, BMI_ACC_CHIP_ID, &chipID);
+
+	if (chipID != 0x1E) {
+
+	//	return 0;
+
 	}
+	HAL_Delay(10);
 
-	return rslt;
+	/* Configure accelerometer  */
+	status += BMI088_WriteAccRegister(imu, BMI_ACC_CONF, 0xAA); /* (no oversampling, ODR = 400 Hz, BW = 145 Hz) */
+	HAL_Delay(10);
+
+	status += BMI088_WriteAccRegister(imu, BMI_ACC_RANGE, 0x03); /* +- 24g range */
+	HAL_Delay(10);
+
+	/* Enable accelerometer data ready interrupt */
+	//status += BMI088_WriteAccRegister(imu, BMI_INT1_IO_CONF, 0x0A); /* INT1 = push-pull output, active high */
+	//HAL_Delay(10);
+
+	//status += BMI088_WriteAccRegister(imu, BMI_INT1_INT2_MAP_DATA, 0x04);
+	//HAL_Delay(10);
+
+	/* Put accelerometer into active mode */
+	status += BMI088_WriteAccRegister(imu, BMI_ACC_PWR_CONF, 0x00);
+	HAL_Delay(10);
+
+	/* Turn accelerometer on */
+	status += BMI088_WriteAccRegister(imu, BMI_ACC_PWR_CTRL, 0x04);
+	HAL_Delay(10);
+
+	/* Pre-compute accelerometer conversion constant (raw to m/s^2) */
+	imu->accConversion = 9.81f / 32768.0f * 16.0f * 1.5f; /* Datasheet page 27 */
+	
+	/* Set accelerometer TX buffer for DMA */
+	imu->accTxBuf[0] = BMI_ACC_DATA | 0x80;
+
+	/*
+	 *
+	 * GYROSCOPE
+	 *
+	 */
+
+	HAL_GPIO_WritePin(imu->csGyrPinBank, imu->csGyrPin, GPIO_PIN_SET);
+
+	/* Perform gyro soft reset */
+	status += BMI088_WriteGyrRegister(imu, BMI_GYR_SOFTRESET, 0xB6);
+	HAL_Delay(250);
+
+	/* Check chip ID */
+	status += BMI088_ReadGyrRegister(imu, BMI_GYR_CHIP_ID, &chipID);
+
+	if (chipID != 0x0F) {
+
+		//return 0;
+
+	}
+	HAL_Delay(10);
+
+	/* Configure gyroscope */
+	status += BMI088_WriteGyrRegister(imu, BMI_GYR_RANGE, 0x00); /* +- 2000 deg/s */
+	HAL_Delay(10);
+
+	status += BMI088_WriteGyrRegister(imu, BMI_GYR_BANDWIDTH, 0x02); /* ODR = 400 Hz, Filter bandwidth = 116 Hz */
+	HAL_Delay(10);
+
+	/* Enable gyroscope data ready interrupt */
+	//status += BMI088_WriteGyrRegister(imu, BMI_GYR_INT_CTRL, 0x80); /* New data interrupt enabled */
+	//HAL_Delay(10);
+
+	//status += BMI088_WriteGyrRegister(imu, BMI_INT3_INT4_IO_CONF, 0x01); /* INT3 = push-pull, active high */
+	//HAL_Delay(10);
+
+	//status += BMI088_WriteGyrRegister(imu, BMI_INT3_INT4_IO_MAP, 0x01); /* Data ready interrupt mapped to INT3 pin */
+	//HAL_Delay(10);
+
+	/* Pre-compute gyroscope conversion constant (raw to rad/s) */
+	imu->gyrConversion = 0.01745329251f * 1000.0f / 16384.0f; /* Datasheet page 39 */
+	
+	/* Set gyroscope TX buffer for DMA */
+	imu->gyrTxBuf[0] = BMI_GYR_DATA | 0x80;
+
+	return status;
+
 }
 
-/*!
- *  @brief This API uploads the bmi088 config file onto the device.
+/*
+ *
+ * LOW-LEVEL REGISTER FUNCTIONS
+ *
  */
-int8_t bmi088_apply_config_file(struct bmi08x_dev *dev)
-{
-	int8_t rslt;
-	/* Check for null pointer in the device structure */
-	rslt = null_ptr_check(dev);
-	/* Proceed if null check is fine */
-	if (rslt == BMI08X_OK) {
-		/* Assign stream file */
-		dev->config_file_ptr = bmi08x_config_file;
-		/* Upload binary */
-		rslt = bmi08a_write_config_file(dev);
+
+/* ACCELEROMETER READS ARE DIFFERENT TO GYROSCOPE READS. SEND ONE BYTE ADDRESS, READ ONE DUMMY BYTE, READ TRUE DATA !!! */
+uint8_t BMI088_ReadAccRegister(BMI088 *imu, uint8_t regAddr, uint8_t *data) {
+
+	uint8_t txBuf[3] = {regAddr | 0x80, 0x00, 0x00};
+	uint8_t rxBuf[3];
+
+	HAL_GPIO_WritePin(imu->csAccPinBank, imu->csAccPin, GPIO_PIN_RESET);
+	uint8_t status = (HAL_SPI_TransmitReceive(imu->spiHandle, txBuf, rxBuf, 3, HAL_MAX_DELAY) != HAL_OK);
+	HAL_GPIO_WritePin(imu->csAccPinBank, imu->csAccPin, GPIO_PIN_SET);
+
+	if (status == 1) {
+
+		*data = rxBuf[2];
+
 	}
 
-	return rslt;
+	return status;
+
 }
 
-/*!
- *  @brief This API is used to enable/disable and configure the data synchronization
- *  feature.
- */
-int8_t bmi088_configure_data_synchronization(struct bmi08x_data_sync_cfg sync_cfg, struct bmi08x_dev *dev)
-{
-	int8_t rslt;
-	uint16_t data[BMI08X_ACCEL_DATA_SYNC_LEN];
-	/* Check for null pointer in the device structure */
-	rslt = null_ptr_check(dev);
-	/* Proceed if null check is fine */
-	if (rslt == BMI08X_OK) {
-		/* change sensor meas config */
-		switch (sync_cfg.mode) {
-		case BMI08X_ACCEL_DATA_SYNC_MODE_2000HZ:
-			dev->accel_cfg.odr = BMI08X_ACCEL_ODR_1600_HZ;
-			dev->accel_cfg.bw = BMI08X_ACCEL_BW_NORMAL;
-			dev->gyro_cfg.odr = BMI08X_GYRO_BW_230_ODR_2000_HZ;
-			dev->gyro_cfg.bw = BMI08X_GYRO_BW_230_ODR_2000_HZ;
-			break;
-		case BMI08X_ACCEL_DATA_SYNC_MODE_1000HZ:
-			dev->accel_cfg.odr = BMI08X_ACCEL_ODR_800_HZ;
-			dev->accel_cfg.bw = BMI08X_ACCEL_BW_NORMAL;
-			dev->gyro_cfg.odr = BMI08X_GYRO_BW_116_ODR_1000_HZ;
-			dev->gyro_cfg.bw = BMI08X_GYRO_BW_116_ODR_1000_HZ;
-			break;
-		case BMI08X_ACCEL_DATA_SYNC_MODE_400HZ:
-			dev->accel_cfg.odr = BMI08X_ACCEL_ODR_400_HZ;
-			dev->accel_cfg.bw = BMI08X_ACCEL_BW_NORMAL;
-			dev->gyro_cfg.odr = BMI08X_GYRO_BW_47_ODR_400_HZ;
-			dev->gyro_cfg.bw = BMI08X_GYRO_BW_47_ODR_400_HZ;
-			break;
-		default:
-			break;
-		}
-		rslt = bmi08a_set_meas_conf(dev);
-		if (rslt != BMI08X_OK)
-			return rslt;
+uint8_t BMI088_ReadGyrRegister(BMI088 *imu, uint8_t regAddr, uint8_t *data) {
 
-		rslt = bmi08g_set_meas_conf(dev);
-		if (rslt != BMI08X_OK)
-			return rslt;
+	uint8_t txBuf[2] = {regAddr | 0x80, 0x00};
+	uint8_t rxBuf[2];
 
-		/* Enable data synchronization */
-		data[0] = (sync_cfg.mode & BMI08X_ACCEL_DATA_SYNC_MODE_MASK);
-		rslt = bmi08a_write_feature_config(BMI08X_ACCEL_DATA_SYNC_ADR, &data[0],
-				BMI08X_ACCEL_DATA_SYNC_LEN, dev);
+	HAL_GPIO_WritePin(imu->csGyrPinBank, imu->csGyrPin, GPIO_PIN_RESET);
+	uint8_t status = (HAL_SPI_TransmitReceive(imu->spiHandle, txBuf, rxBuf, 2, HAL_MAX_DELAY) != HAL_OK);
+	HAL_GPIO_WritePin(imu->csGyrPinBank, imu->csGyrPin, GPIO_PIN_SET);
+
+	if (status == 1) {
+
+		*data = rxBuf[1];
+
 	}
 
-	return rslt;
+	return status;
+
 }
 
-/*!
- *  @brief This API is used to enable/disable and configure the anymotion
- *  feature.
- */
-int8_t bmi088_configure_anymotion(struct bmi08x_anymotion_cfg anymotion_cfg, const struct bmi08x_dev *dev)
-{
-	int8_t rslt;
-	uint16_t data[BMI08X_ACCEL_ANYMOTION_LEN];
-	/* Check for null pointer in the device structure */
-	rslt = null_ptr_check(dev);
-	/* Proceed if null check is fine */
-	if (rslt == BMI08X_OK) {
-		/* Enable data synchronization */
-		data[0] = (anymotion_cfg.threshold & BMI08X_ACCEL_ANYMOTION_THRESHOLD_MASK);
-		data[0] |= ((anymotion_cfg.nomotion_sel << BMI08X_ACCEL_ANYMOTION_NOMOTION_SEL_SHIFT) &
-					BMI08X_ACCEL_ANYMOTION_NOMOTION_SEL_MASK);
-		data[1] = (anymotion_cfg.duration & BMI08X_ACCEL_ANYMOTION_DURATION_MASK);
-		data[1] |= ((anymotion_cfg.x_en << BMI08X_ACCEL_ANYMOTION_X_EN_SHIFT) &
-					BMI08X_ACCEL_ANYMOTION_X_EN_MASK);
-		data[1] |= ((anymotion_cfg.y_en << BMI08X_ACCEL_ANYMOTION_Y_EN_SHIFT) &
-					BMI08X_ACCEL_ANYMOTION_Y_EN_MASK);
-		data[1] |= ((anymotion_cfg.z_en << BMI08X_ACCEL_ANYMOTION_Z_EN_SHIFT) &
-					BMI08X_ACCEL_ANYMOTION_Z_EN_MASK);
-		rslt = bmi08a_write_feature_config(BMI08X_ACCEL_ANYMOTION_ADR, &data[0],
-					BMI08X_ACCEL_ANYMOTION_LEN, dev);
-	}
+uint8_t BMI088_WriteAccRegister(BMI088 *imu, uint8_t regAddr, uint8_t data) {
 
-	return rslt;
+	uint8_t txBuf[2] = {regAddr, data};
+
+	HAL_GPIO_WritePin(imu->csAccPinBank, imu->csAccPin, GPIO_PIN_RESET);
+	uint8_t status = (HAL_SPI_Transmit(imu->spiHandle, txBuf, 2, HAL_MAX_DELAY) != HAL_OK);
+	while(HAL_SPI_GetState(imu->spiHandle) != HAL_SPI_STATE_READY);
+	HAL_GPIO_WritePin(imu->csAccPinBank, imu->csAccPin, GPIO_PIN_SET);
+
+	return status;
+
 }
-/*!
- *  @brief This API reads the synchronized accel & gyro data from the sensor,
- *  store it in the bmi08x_sensor_data structure instance
- *  passed by the user.
+
+uint8_t BMI088_WriteGyrRegister(BMI088 *imu, uint8_t regAddr, uint8_t data) {
+
+	uint8_t txBuf[2] = {regAddr, data};
+
+	HAL_GPIO_WritePin(imu->csGyrPinBank, imu->csGyrPin, GPIO_PIN_RESET);
+	uint8_t status = (HAL_SPI_Transmit(imu->spiHandle, txBuf, 2, HAL_MAX_DELAY) != HAL_OK);
+	while(HAL_SPI_GetState(imu->spiHandle) != HAL_SPI_STATE_READY);
+	HAL_GPIO_WritePin(imu->csGyrPinBank, imu->csGyrPin, GPIO_PIN_SET);
+
+	return status;
+
+}
+
+
+
+/*
+ *
+ * POLLING
+ *
  */
-int8_t bmi088_get_synchronized_data(struct bmi08x_sensor_data *accel, struct bmi08x_sensor_data *gyro,
-		const struct bmi08x_dev *dev)
-{
-	int8_t rslt;
-	uint8_t reg_addr, data[6];
-	uint8_t lsb, msb;
-	uint16_t msblsb;
-	/* Check for null pointer in the device structure */
-	rslt = null_ptr_check(dev);
-	/* Proceed if null check is fine */
-	if ((rslt == BMI08X_OK) && (accel != NULL) && (gyro != NULL)) {
-		/* Read accel x,y sensor data */
-		reg_addr = BMI08X_ACCEL_GP_0_REG;
-		rslt = bmi08a_get_regs(reg_addr, &data[0], 4, dev);
+uint8_t BMI088_ReadAccelerometer(BMI088 *imu) {
 
-		if (rslt == BMI08X_OK) {
-			/* Read accel sensor data */
-			reg_addr = BMI08X_ACCEL_GP_4_REG;
-			rslt = bmi08a_get_regs(reg_addr, &data[4], 2, dev);
+	/* Read raw accelerometer data */
+	uint8_t txBuf[8] = {(BMI_ACC_DATA | 0x80), 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}; /* Register addr, 1 byte dummy, 6 bytes data */
+	uint8_t rxBuf[8];
 
-			if (rslt == BMI08X_OK) {
-				lsb = data[0];
-				msb = data[1];
-				msblsb = (msb << 8) | lsb;
-				accel->x = ((int16_t) msblsb); /* Data in X axis */
+	HAL_GPIO_WritePin(imu->csAccPinBank, imu->csAccPin, GPIO_PIN_RESET);
+	uint8_t status = (HAL_SPI_TransmitReceive(imu->spiHandle, txBuf, rxBuf, 8, HAL_MAX_DELAY) != HAL_OK);
+	HAL_GPIO_WritePin(imu->csAccPinBank, imu->csAccPin, GPIO_PIN_SET);
 
-				lsb = data[2];
-				msb = data[3];
-				msblsb = (msb << 8) | lsb;
-				accel->y = ((int16_t) msblsb); /* Data in Y axis */
+	/* Form signed 16-bit integers */
+	int16_t accX = (int16_t) ((rxBuf[3] << 8) | rxBuf[2]);
+	int16_t accY = (int16_t) ((rxBuf[5] << 8) | rxBuf[4]);
+	int16_t accZ = (int16_t) ((rxBuf[7] << 8) | rxBuf[6]);
 
-				lsb = data[4];
-				msb = data[5];
-				msblsb = (msb << 8) | lsb;
-				accel->z = ((int16_t) msblsb); /* Data in Z axis */
+	/* Convert to m/s^2 */
+	imu->acc_mps2[0] = imu->accConversion * accX;
+	imu->acc_mps2[1] = imu->accConversion * accY;
+	imu->acc_mps2[2] = imu->accConversion * accZ;
 
-				/* Read gyro sensor data */
-				rslt = bmi08g_get_data(gyro, dev);
-			}
-		}
+	return status;
+
+}
+
+uint8_t BMI088_ReadGyroscope(BMI088 *imu) {
+
+	/* Read raw gyroscope data */
+	uint8_t txBuf[7] = {(BMI_GYR_DATA | 0x80), 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}; /* Register addr, 6 bytes data */
+	uint8_t rxBuf[7];
+
+	HAL_GPIO_WritePin(imu->csGyrPinBank, imu->csGyrPin, GPIO_PIN_RESET);
+	uint8_t status = (HAL_SPI_TransmitReceive(imu->spiHandle, txBuf, rxBuf, 7, HAL_MAX_DELAY) != HAL_OK);
+	HAL_GPIO_WritePin(imu->csGyrPinBank, imu->csGyrPin, GPIO_PIN_SET);
+
+	/* Form signed 16-bit integers */
+	int16_t gyrX = (int16_t) ((rxBuf[1] << 8) | rxBuf[2]);
+	int16_t gyrY = (int16_t) ((rxBuf[3] << 8) | rxBuf[4]);
+	int16_t gyrZ = (int16_t) ((rxBuf[5] << 8) | rxBuf[6]);
+
+	/* Convert to rad/s */
+	imu->gyr_rps[0] = imu->gyrConversion * gyrX;
+	imu->gyr_rps[1] = imu->gyrConversion * gyrY;
+	imu->gyr_rps[2] = imu->gyrConversion * gyrZ;
+
+	return status;
+
+}
+
+/*
+ *
+ * DMA
+ *
+ */
+uint8_t BMI088_ReadAccelerometerDMA(BMI088 *imu) {
+
+	HAL_GPIO_WritePin(imu->csAccPinBank, imu->csAccPin, GPIO_PIN_RESET);
+	if (HAL_SPI_TransmitReceive_DMA(imu->spiHandle, imu->accTxBuf, (uint8_t *) imu->accRxBuf, 8) != HAL_OK) {
+
+		imu->readingAcc = 1;
+		return 1;
 
 	} else {
-		rslt = BMI08X_E_NULL_PTR;
+
+		HAL_GPIO_WritePin(imu->csAccPinBank, imu->csAccPin, GPIO_PIN_SET);
+		return 0;
+
 	}
 
-	return rslt;
-}
-/*!
- *  @brief This API configures the synchronization interrupt
- *  based on the user settings in the bmi08x_int_cfg
- *  structure instance.
- */
-int8_t bmi088_set_data_sync_int_config(const struct bmi08x_int_cfg *int_config,
-	const struct bmi08x_dev *dev)
-{
-	int8_t rslt;
-	/*configure accel sync data ready interrupt configuration*/
-	rslt = bmi08a_set_int_config(&int_config->accel_int_config_1, dev);
-	if (rslt != BMI08X_OK)
-		return rslt;
-
-	rslt = bmi08a_set_int_config(&int_config->accel_int_config_2, dev);
-	if (rslt != BMI08X_OK)
-		return rslt;
-
-	/*configure gyro data ready interrupt configuration*/
-	rslt = bmi08g_set_int_config(&int_config->gyro_int_config_1, dev);
-	if (rslt != BMI08X_OK)
-		return rslt;
-
-	rslt = bmi08g_set_int_config(&int_config->gyro_int_config_2, dev);
-
-	return rslt;
 }
 
-/*****************************************************************************/
-/* Static function definition */
-/*!
- * @brief This API is used to validate the device structure pointer for
- * null conditions.
- */
-static int8_t null_ptr_check(const struct bmi08x_dev *dev)
-{
-	int8_t rslt;
+void BMI088_ReadAccelerometerDMA_Complete(BMI088 *imu) {
 
-	if ((dev == NULL) || (dev->read == NULL) || (dev->write == NULL) || (dev->delay_ms == NULL)) {
-		/* Device structure pointer is not valid */
-		rslt = BMI08X_E_NULL_PTR;
+	HAL_GPIO_WritePin(imu->csAccPinBank, imu->csAccPin, GPIO_PIN_SET);
+	imu->readingAcc = 0;
+
+	/* Form signed 16-bit integers */
+	int16_t accX = (int16_t) ((imu->accRxBuf[3] << 8) | imu->accRxBuf[2]);
+	int16_t accY = (int16_t) ((imu->accRxBuf[5] << 8) | imu->accRxBuf[4]);
+	int16_t accZ = (int16_t) ((imu->accRxBuf[7] << 8) | imu->accRxBuf[6]);
+
+	/* Convert to m/s^2 */
+	imu->acc_mps2[0] = imu->accConversion * accX;
+	imu->acc_mps2[1] = imu->accConversion * accY;
+	imu->acc_mps2[2] = imu->accConversion * accZ;
+
+}
+
+uint8_t BMI088_ReadGyroscopeDMA(BMI088 *imu) {
+
+	HAL_GPIO_WritePin(imu->csGyrPinBank, imu->csGyrPin, GPIO_PIN_RESET);
+	if (HAL_SPI_TransmitReceive_DMA(imu->spiHandle, imu->gyrTxBuf, (uint8_t *) imu->gyrRxBuf, 7) != HAL_OK) {
+
+		imu->readingGyr = 1;
+		return 1;
+
 	} else {
-		/* Device structure is fine */
-		rslt = BMI08X_OK;
+
+		HAL_GPIO_WritePin(imu->csGyrPinBank, imu->csGyrPin, GPIO_PIN_SET);
+		return 0;
+
 	}
 
-	return rslt;
 }
-#endif
-/** @}*/
+
+void BMI088_ReadGyroscopeDMA_Complete(BMI088 *imu) {
+
+	HAL_GPIO_WritePin(imu->csGyrPinBank, imu->csGyrPin, GPIO_PIN_SET);
+	imu->readingGyr = 0;
+
+	/* Form signed 16-bit integers */
+	int16_t gyrX = (int16_t) ((imu->gyrRxBuf[2] << 8) | imu->gyrRxBuf[1]);
+	int16_t gyrY = (int16_t) ((imu->gyrRxBuf[4] << 8) | imu->gyrRxBuf[3]);
+	int16_t gyrZ = (int16_t) ((imu->gyrRxBuf[6] << 8) | imu->gyrRxBuf[5]);
+
+	/* Convert to deg/s */
+	imu->gyr_rps[0] = imu->gyrConversion * gyrX;
+	imu->gyr_rps[1] = imu->gyrConversion * gyrY;
+	imu->gyr_rps[2] = imu->gyrConversion * gyrZ;
+
+}

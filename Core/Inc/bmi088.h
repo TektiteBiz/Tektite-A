@@ -1,149 +1,94 @@
-/**
- * Copyright (C) 2017 - 2018 Bosch Sensortec GmbH
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * Redistributions of source code must retain the above copyright
- * notice, this list of conditions and the following disclaimer.
- *
- * Redistributions in binary form must reproduce the above copyright
- * notice, this list of conditions and the following disclaimer in the
- * documentation and/or other materials provided with the distribution.
- *
- * Neither the name of the copyright holder nor the names of the
- * contributors may be used to endorse or promote products derived from
- * this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
- * CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDER
- * OR CONTRIBUTORS BE LIABLE FOR ANY
- * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
- * OR CONSEQUENTIAL DAMAGES(INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
- *
- * The information provided is believed to be accurate and reliable.
- * The copyright holder assumes no responsibility
- * for the consequences of use
- * of such information nor for any infringement of patents or
- * other rights of third parties which may result from its use.
- * No license is granted by implication or otherwise under any patent or
- * patent rights of the copyright holder.
- *
- * @file       bmi088.h
- * @date       24 Aug 2018
- * @version    1.2.0
- *
- */
-/*! \file bmi088.h
- \brief Sensor Driver for BMI088 family of sensors */
-#ifndef BMI088_H_
-#define BMI088_H_
+#ifndef BMI088_IMU_H
+#define BMI088_IMU_H
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
+#include "stm32f4xx_hal.h"
 
-/* header files */
-#include "bmi08x_defs.h"
-#if BMI08X_FEATURE_BMI088 == 1
-/**********************************************************************************/
-/* (extern) variable declarations */
-/**********************************************************************************/
+/* Register defines */
+#define BMI_ACC_CHIP_ID 		0x00
+#define BMI_ACC_DATA 			0x12
+#define BMI_TEMP_DATA 			0x22
+#define BMI_ACC_CONF 			0x40
+#define BMI_ACC_RANGE 			0x41
+#define BMI_INT1_IO_CONF 	   	0x53
+#define BMI_INT1_INT2_MAP_DATA 	0x58
+#define BMI_ACC_PWR_CONF 		0x7C
+#define BMI_ACC_PWR_CTRL 		0x7D
+#define BMI_ACC_SOFTRESET 		0x7E
 
-/**********************************************************************************/
-/* function prototype declarations */
-/*!
- *  @brief This API is the entry point for bmi088 sensors.
- *  It performs the selection of I2C/SPI read mechanism according to the
- *  selected interface and reads the chip-id of accel & gyro sensors.
- *
- *  @param[in,out] dev  : Structure instance of bmi08x_dev.
- *
- *  @note : Refer user guide for detailed info.
- *
- *  @return Result of API execution status
- *  @retval zero -> Success / -ve value -> Error
- */
-int8_t bmi088_init(struct bmi08x_dev *dev);
+#define BMI_GYR_CHIP_ID			0x00
+#define BMI_GYR_DATA			0x02
+#define	BMI_GYR_RANGE			0x0F
+#define	BMI_GYR_BANDWIDTH		0x10
+#define	BMI_GYR_SOFTRESET		0x14
+#define	BMI_GYR_INT_CTRL		0x15
+#define	BMI_INT3_INT4_IO_CONF	0x16
+#define BMI_INT3_INT4_IO_MAP	0x18
 
-/*!
- *  @brief This API uploads the bmi088 config file onto the device.
- *
- *  @param[in,out] dev  : Structure instance of bmi08x_dev.
- *
- *  @return Result of API execution status
- *  @retval zero -> Success / -ve value -> Error
- */
-int8_t bmi088_apply_config_file(struct bmi08x_dev *dev);
+typedef struct {
 
-/*!
- *  @brief This API is used to enable/disable the data synchronization
- *  feature.
- *
- *  @param[in] sync_cfg : configure sync feature
- *  @param[in] dev : Structure instance of bmi08x_dev.
- *
- *  @return Result of API execution status
- *  @retval zero -> Success / -ve value -> Error
- */
-int8_t bmi088_configure_data_synchronization(struct bmi08x_data_sync_cfg sync_cfg, struct bmi08x_dev *dev);
+	/* SPI */
+	SPI_HandleTypeDef *spiHandle;
+	GPIO_TypeDef 	  *csAccPinBank;
+	GPIO_TypeDef 	  *csGyrPinBank;
+	uint16_t 		   csAccPin;
+	uint16_t 		   csGyrPin;
 
-/*!
- *  @brief This API is used to enable/disable and configure the anymotion
- *  feature.
+	/* DMA */
+	uint8_t readingAcc;
+	uint8_t readingGyr;
+	uint8_t accTxBuf[8];
+	uint8_t gyrTxBuf[7];
+	volatile uint8_t accRxBuf[8];
+	volatile uint8_t gyrRxBuf[7];
+
+	/* Conversion constants (raw to m/s^2 and raw to rad/s) */
+	float accConversion;
+	float gyrConversion;
+
+	/* x-y-z measurements */
+	float acc_mps2[3];
+	float gyr_rps[3];
+
+} BMI088;
+
+/*
  *
- *  @param[in] anymotion_cfg : configure anymotion feature
- *  @param[in] dev : Structure instance of bmi08x_dev.
+ * INITIALISATION
  *
- *  @return Result of API execution status
- *  @retval zero -> Success / -ve value -> Error
  */
-int8_t bmi088_configure_anymotion(struct bmi08x_anymotion_cfg anymotion_cfg, const struct bmi08x_dev *dev);
-/*!
- *  @brief This API reads the synchronized accel & gyro data from the sensor,
- *  store it in the bmi08x_sensor_data structure instance
- *  passed by the user.
+uint8_t BMI088_Init(BMI088 *imu,
+				 SPI_HandleTypeDef *spiHandle,
+				 GPIO_TypeDef *csAccPinBank, uint16_t csAccPin,
+				 GPIO_TypeDef *csGyrPinBank, uint16_t csGyrPin);
+
+/*
  *
- *  @param[out] accel  : Structure pointer to store accel data
- *  @param[out] gyro   : Structure pointer to store gyro  data
- *  @param[in]  dev    : Structure instance of bmi08x_dev.
+ * LOW-LEVEL REGISTER FUNCTIONS
  *
- *
- *  @return Result of API execution status
- *  @retval zero -> Success / -ve value -> Error
  */
-int8_t bmi088_get_synchronized_data(struct bmi08x_sensor_data *accel, struct bmi08x_sensor_data *gyro,
-		const struct bmi08x_dev *dev);
-/*!
- *  @brief This API configures the synchronization interrupt
- *  based on the user settings in the bmi08x_int_cfg
- *  structure instance.
+uint8_t BMI088_ReadAccRegister(BMI088 *imu, uint8_t regAddr, uint8_t *data);
+uint8_t BMI088_ReadGyrRegister(BMI088 *imu, uint8_t regAddr, uint8_t *data);
+
+uint8_t BMI088_WriteAccRegister(BMI088 *imu, uint8_t regAddr, uint8_t data);
+uint8_t BMI088_WriteGyrRegister(BMI088 *imu, uint8_t regAddr, uint8_t data);
+
+/*
  *
- *  @param[in] int_config : Structure instance of accel bmi08x_int_cfg.
- *  @param[in] dev         : Structure instance of bmi08x_dev.
- *  @note : Refer user guide for detailed info.
+ * POLLING
  *
- *  @return Result of API execution status
- *  @retval zero -> Success / -ve value -> Error
  */
-int8_t bmi088_set_data_sync_int_config(const struct bmi08x_int_cfg *int_config, const struct bmi08x_dev *dev);
+uint8_t BMI088_ReadAccelerometer(BMI088 *imu);
+uint8_t BMI088_ReadGyroscope(BMI088 *imu);
+
+/*
+ *
+ * DMA
+ *
+ */
+uint8_t BMI088_ReadAccelerometerDMA(BMI088 *imu);
+void 	BMI088_ReadAccelerometerDMA_Complete(BMI088 *imu);
+
+uint8_t BMI088_ReadGyroscopeDMA(BMI088 *imu);
+void 	BMI088_ReadGyroscopeDMA_Complete(BMI088 *imu);
 
 #endif
-#ifdef __cplusplus
-}
-#endif
-
-#endif /* BMI088_H_ */
-
-/** @}*/
