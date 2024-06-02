@@ -76,9 +76,9 @@ uint8_t testRead[4];
 SPIF_HandleTypeDef spif;
 
 void LEDWrite(int r, int g, int b) {
-	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, b);
-	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, r);
-	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, g);
+	htim1.Instance->CCR1 = b;
+	htim1.Instance->CCR2 = r;
+	htim1.Instance->CCR3 = g;
 }
 void Error(char* err) {
 	while (1) {
@@ -113,6 +113,30 @@ void SPIFInit() {
 	if (!SPIF_Init(&spif, &hspi1, FLASH_CS_GPIO_Port, FLASH_CS_Pin)) {
 		Error("FLASH Initialization Failure");
 	}
+}
+
+void ServoInit() {
+	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
+	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
+}
+
+// 0-120deg => 900-2100uS
+// Divide value by 10 to get % of cycle that is spent on this, each cycle is 20ms since 50Hz
+// 0.9ms pwm = 0.9/20 * 1000 = 45, 2.1 = 105
+void ServoWriteS1(float angle) {
+	htim2.Instance->CCR1 = (int)(angle/120.0f * (float)(105-45)) + 45;
+}
+void ServoWriteS2(float angle) {
+	htim2.Instance->CCR2 = (int)(angle/120.0f * (float)(105-45)) + 45;
+}
+void ServoWriteS3(float angle) {
+	htim2.Instance->CCR3 = (int)(angle/120.0f * (float)(105-45)) + 45;
+}
+void ServoDetach() {
+	htim2.Instance->CCR1 = 0;
+	htim2.Instance->CCR2 = 0;
+	htim2.Instance->CCR3 = 0;
 }
 /* USER CODE END 0 */
 
@@ -157,6 +181,7 @@ int main(void)
   MS5607Init();
   BMI088Init();
   SPIFInit();
+  ServoInit();
 
 	if (!SPIF_EraseSector(&spif, 0)) {
 		Error("FLASH Fail");
@@ -167,6 +192,7 @@ int main(void)
 	if (!SPIF_ReadPage(&spif, 0, testRead, 4, 0)) {
 		Error("FLASH Fail");
 	}
+	ServoWriteS3(60);
 
   /* USER CODE END 2 */
 
