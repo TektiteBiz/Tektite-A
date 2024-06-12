@@ -96,6 +96,12 @@ void LEDInit() {
 	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
 }
 
+double BattVoltage() {
+	HAL_ADC_Start(&hadc1);
+	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
+	return ((double)HAL_ADC_GetValue(&hadc1))*0.00251984291; // x/4096 * (100+47)/47 [voltage resistor] * 3.3 [vref]
+}
+
 void BMI088Init() {
 	int res = BMI088_Init(&imu, &hspi1, ACCEL_CS_GPIO_Port, ACCEL_CS_Pin, GYRO_CS_GPIO_Port, GYRO_CS_Pin);
 	if (res != 0) {
@@ -205,6 +211,8 @@ int main(void)
     /* USER CODE BEGIN 3 */
 
 	 LEDWrite(0, 0, 0);
+
+	 int start = HAL_GetTick();
 	 BMI088_ReadAccelerometer(&imu);
 	 BMI088_ReadGyroscope(&imu);
 
@@ -212,7 +220,10 @@ int main(void)
 	 MS5607UncompensatedRead(&baroRaw);
 	 MS5607Convert(&baroRaw, &baro);
 	 alt = (44330.0f * (1.0f - pow((double)baro.pressure / 101325.0f, 0.1902949f)));
-	 printf("ax:%f,ay:%f,az:%f,gx:%f,gy:%f,gz:%f,alt:%f,temp:%d,pressure:%d\n", imu.acc_mps2[0], imu.acc_mps2[1], imu.acc_mps2[2], imu.gyr_rps[0], imu.gyr_rps[1], imu.gyr_rps[2], alt, baro.temperature, baro.pressure);
+	 int end = HAL_GetTick();
+
+	 double voltage = BattVoltage(); // WARNING: This is very slow, make sure not to do this in the real code - probably just check at startup and maybe landing
+	 printf("ax:%f,ay:%f,az:%f,gx:%f,gy:%f,gz:%f,alt:%f,temp:%d,pressure:%d,readtime:%d,voltage:%f\n", imu.acc_mps2[0], imu.acc_mps2[1], imu.acc_mps2[2], imu.gyr_rps[0], imu.gyr_rps[1], imu.gyr_rps[2], alt, baro.temperature, baro.pressure, end - start, voltage);
 
 	 HAL_Delay(25);
   }
