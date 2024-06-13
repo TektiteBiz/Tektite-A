@@ -220,10 +220,15 @@ int main(void)
 	 MS5607UncompensatedRead(&baroRaw);
 	 MS5607Convert(&baroRaw, &baro);
 	 alt = (44330.0f * (1.0f - pow((double)baro.pressure / 101325.0f, 0.1902949f)));
+
+	 estimate(imu.acc_mps2, imu.gyr_rps, alt);
 	 int end = HAL_GetTick();
 
-	 double voltage = BattVoltage(); // WARNING: This is very slow, make sure not to do this in the real code - probably just check at startup and maybe landing
-	 printf("ax:%f,ay:%f,az:%f,gx:%f,gy:%f,gz:%f,alt:%f,temp:%d,pressure:%d,readtime:%d,voltage:%f\n", imu.acc_mps2[0], imu.acc_mps2[1], imu.acc_mps2[2], imu.gyr_rps[0], imu.gyr_rps[1], imu.gyr_rps[2], alt, baro.temperature, baro.pressure, end - start, voltage);
+	 //printf("alt:%f,vel:%f,accel:%f,readtime:%d\n", getZAlt(), getZVel(), getZAccel(), end - start);
+	 //printf("gx:%f,gy:%f,gz:%f\n", imu.gyr_rps[0], imu.gyr_rps[1], imu.gyr_rps[2]);
+
+	 //double voltage = BattVoltage(); // WARNING: This is very slow, make sure not to do this in the real code - probably just check at startup and maybe landing
+	 //printf("ax:%f,ay:%f,az:%f,gx:%f,gy:%f,gz:%f,alt:%f,temp:%d,pressure:%d,readtime:%d,voltage:%f\n", imu.acc_mps2[0], imu.acc_mps2[1], imu.acc_mps2[2], imu.gyr_rps[0], imu.gyr_rps[1], imu.gyr_rps[2], alt, baro.temperature, baro.pressure, end - start, voltage);
 
 	 HAL_Delay(25);
   }
