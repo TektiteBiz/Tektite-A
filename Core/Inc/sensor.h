@@ -89,6 +89,8 @@ typedef struct {
 	bool control;
 	float param; // If not under control, use this as the angle, if under control, use this as the target altitude
 	uint32_t burntime; // Milliseconds
+	float alpha; // Rho * A
+	float mass; // kg
 } Config;
 
 extern Config config;

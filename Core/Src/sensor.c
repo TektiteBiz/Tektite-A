@@ -94,6 +94,8 @@ void LoadConfig() {
 		config.control = false;
 		config.param = 0;
 		config.burntime = 1000;
+		config.alpha = 0.003328;
+		config.mass = 0.5;
 		StoreConfig();
 	}
 
