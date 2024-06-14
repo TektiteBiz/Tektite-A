@@ -45,6 +45,7 @@ void KalmanFilter::predictState(float predictedState[3], float gyro[3], float de
     identityMatrix3x3(identity);
     float skewFromGyro[3][3];
     skew(skewFromGyro, gyro);
+
     // Predict state
     scaleAndAccumulateMatrix3x3(identity, -deltat, skewFromGyro);
     matrixDotVector3x3(predictedState, identity, currentState);
@@ -157,7 +158,7 @@ float KalmanFilter::estimate(float gyro[3], float accel[3], float deltat)
     subtractVectors(accelSensor, accel, tmp);
     copyVector(previousAccelSensor, accelSensor);
     dotProductVectors(& accelEarth, accelSensor, updatedState);
-
+    printf("ax:%f,ay:%f,az:%f,axr:%f,ayr:%f,azr:%f,abc:%f\n", updatedState[0]*9.81, updatedState[1]*9.81, updatedState[2]*9.81, accel[0], accel[1], accel[2], accelEarth);
     return accelEarth;
 }
 

@@ -85,10 +85,7 @@ void Error_Handler(void);
 #define LED_G_GPIO_Port GPIOA
 
 /* USER CODE BEGIN Private defines */
-float getZAlt();
-float getZVel();
-float getZAccel();
-void estimate(float accel[3], float gyro[3], float baroHeight);
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
