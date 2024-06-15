@@ -77,7 +77,7 @@ void StandbyUpdate() {
 	}
 
 	// Next state
-	if (state.azr < 0.8 && sensorBuf.zero != 0) { // Flipped upside down and no data
+	if (state.azr < -0.8 && sensorBuf.zero != 0) { // Flipped upside down and no data
 		currentState = ARMED;
 		return;
 	}
