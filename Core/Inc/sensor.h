@@ -34,6 +34,7 @@ uint32_t GetTime();
 #pragma pack(1)
 typedef struct {
 	uint32_t time;
+	uint8_t state;
 
 	// Unfiltered
 	float axr;

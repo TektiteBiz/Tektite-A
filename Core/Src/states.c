@@ -86,7 +86,7 @@ void StandbyUpdate() {
 void ArmedUpdate() {
 	LEDWrite(255, 0, 0); // Red
 
-	if (state.azr > 3) { // >3G acceleration = liftoff!
+	if (state.azr > 3) { // >4G acceleration = liftoff!
 		ResetTime();
 		currentState = BURN;
 		return;
@@ -127,6 +127,7 @@ void DescentUpdate() {
 }
 
 void StateUpdate() {
+	state.state = currentState;
 	switch (currentState) {
 		case STANDBY:
 			StandbyUpdate();

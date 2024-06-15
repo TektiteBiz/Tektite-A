@@ -199,7 +199,7 @@ void WriteState(bool finished) {
 	sensorBuf.buf[sensorBuf.sampleCount] = state;
 	sensorBuf.sampleCount++;
 	if (sensorBuf.sampleCount == sizeof(sensorBuf.buf)/sizeof(state) || finished) { // Write sensor buf
-		SPIF_WriteSector(&spif, sensorBufIdx + 1, (uint8_t*)(&sensorBuf), sizeof(sensorBuf), 0);
+		SPIF_WriteSector(&spif, sensorBufIdx, (uint8_t*)(&sensorBuf), sizeof(sensorBuf), 0);
 		sensorBufIdx++;
 		sensorBuf.sampleCount = 0;
 	}
@@ -210,8 +210,9 @@ void WriteState(bool finished) {
 
 extern bool commandAvailable;
 void SendData() { // send data to host
-	LEDWrite(255, 255, 0);
-	for (int i = 0; i < 4096; i++) {
+	LEDWrite(128, 0, 255);
+	for (int i = 1; i < 4096; i++) {
+		memset(&sensorBuf, 1, sizeof(sensorBuf));
 		SPIF_ReadSector(&spif, i, (uint8_t*)(&sensorBuf), sizeof(sensorBuf), 0);
 		if (sensorBuf.zero == 0) {
 			CDC_Transmit_FS((uint8_t*)(&sensorBuf), sizeof(sensorBuf));
