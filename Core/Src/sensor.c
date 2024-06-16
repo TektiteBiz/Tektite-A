@@ -178,7 +178,7 @@ void SensorUpdate() {
 	state.gyr = imu.gyr_rps[1];
 	state.gzr = imu.gyr_rps[2];
 	state.baro = (float)baro.pressure;
-	state.temp = 0.0001f * (float)baro.temperature;
+	state.temp = 0.01f * (float)baro.temperature;
 
 	state.ax = 0; // TODO: Make ax and ay actually get computed
 	state.ay = 0;

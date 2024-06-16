@@ -34,7 +34,18 @@ uint32_t GetTime();
 #pragma pack(1)
 typedef struct {
 	uint32_t time;
-	uint8_t state;
+	// Useful
+	float alt;
+	float vz;
+	float vx;
+	float vy;
+	float az;
+	float pre;
+	float s1;
+
+	// Filtered
+	float ax;
+	float ay;
 
 	// Unfiltered
 	float axr;
@@ -48,22 +59,11 @@ typedef struct {
 	float baro;
 	float temp;
 
-	// Filtered
-	float ax;
-	float ay;
-	float az;
-
-	float vx;
-	float vy;
-	float vz;
-
-	float alt;
-
 	// Controller
-	float pre;
-	float s1;
 	float s2;
 	float s3;
+
+	uint8_t state;
 } State;
 
 extern State state;
