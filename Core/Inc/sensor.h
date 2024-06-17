@@ -89,7 +89,8 @@ typedef struct {
 	// Flight mode
 	bool control;
 	float param; // If not under control, use this as the angle, if under control, use this as the target altitude
-	uint32_t burntime; // Milliseconds
+	uint32_t starttime; // Control start time (ms)
+	float P; // Controller gain
 	float alpha; // Rho * A
 	float mass; // kg
 } Config;

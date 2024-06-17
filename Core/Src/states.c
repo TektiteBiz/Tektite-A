@@ -97,7 +97,7 @@ void BurnUpdate() {
 	LEDWrite(128, 0, 255); // Purple
 	WriteState(false);
 
-	if (GetTime() >= config.burntime) {
+	if (GetTime() >= config.starttime) {
 		currentState = CONTROL;
 		return;
 	}
