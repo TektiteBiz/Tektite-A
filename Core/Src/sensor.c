@@ -129,6 +129,7 @@ void ServoDetach() {
 }
 
 
+extern double battVoltage;
 void SensorInit() {
 	LEDInit();
 	LEDWrite(128, 128, 128); // Initialize phase
@@ -141,6 +142,8 @@ void SensorInit() {
 	LoadConfig();
 
 	LEDWrite(0, 0, 0);
+
+	battVoltage = BattVoltage();
 }
 
 

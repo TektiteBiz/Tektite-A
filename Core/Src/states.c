@@ -15,12 +15,15 @@ bool commandAvailable;
 
 
 int noDetachUntil = 0; // For ServoMin/ServoMax command
+double battVoltage = 0;
 void StandbyUpdate() {
 	if (sensorBuf.zero == 0) { // Has data!
 		LEDWrite(255, 128, 0); // Orange
 	} else if (HAL_GetTick() < noDetachUntil) {
 		int val = (noDetachUntil - HAL_GetTick())/2;
 		LEDWrite(val, val, val);
+	} else if (battVoltage < 7.4) {
+		LEDWrite(0, 0, 128); // Blue for low battery
 	} else {
 		LEDWrite(0, 128, 0); // Green
 	}
@@ -119,6 +122,7 @@ void DescentUpdate() {
 
 	if (abs(state.vz) < 1.5 && abs(state.alt) < 2) {
 		currentState = STANDBY;
+		battVoltage = BattVoltage();
 		if (sensorBuf.sampleCount > 0) {
 			WriteState(true);
 		}
