@@ -59,9 +59,9 @@ float AltitudeEstimator::getVerticalAcceleration()
 
 
 // Altitude estimator
-AltitudeEstimator altitude = AltitudeEstimator(0.0005, 	// sigma Accel
-                                               0.0005, 	// sigma Gyro
-                                               0.018,   // sigma Baro
+AltitudeEstimator altitude = AltitudeEstimator(0.002906, 	// sigma Accel
+											   0.001894, 	// sigma Gyro
+											   3.771261,   // sigma Baro
                                                0.5, 	// ca
                                                0.1);	// accelThreshold
 

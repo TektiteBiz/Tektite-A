@@ -101,17 +101,7 @@ int main(void)
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
   SensorInit();
-
-	/*if (!SPIF_EraseSector(&spif, 0)) {
-		Error("FLASH Fail");
-	}
-	if (!SPIF_WritePage(&spif, 0, testWrite, 4, 0)) {
-		Error("FLASH Fail");
-	}
-	if (!SPIF_ReadPage(&spif, 0, testRead, 4, 0)) {
-		Error("FLASH Fail");
-	}
-	ServoWriteS3(60);*/
+  //CalcStdev();
 
   /* USER CODE END 2 */
 

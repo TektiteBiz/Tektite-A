@@ -106,6 +106,7 @@ extern SensorBuf sensorBuf;
 
 void WriteState(bool finished);
 void SendData();
+void CalcStdev();
 
 extern uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
 
