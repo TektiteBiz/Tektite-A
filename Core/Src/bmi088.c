@@ -74,7 +74,7 @@ uint8_t BMI088_Init(BMI088 *imu,
 	HAL_Delay(10);
 
 	/* Pre-compute accelerometer conversion constant (raw to m/s^2) */
-	imu->accConversion = 1.0f / 32768.0f * 16.0f * 1.5f; /* Datasheet page 27 */
+	imu->accConversion = 9.81f / 32768.0f * 16.0f * 1.5f; /* Datasheet page 27 */
 
 	/* Set accelerometer TX buffer for DMA */
 	imu->accTxBuf[0] = BMI_ACC_DATA | 0x80;

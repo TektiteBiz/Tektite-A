@@ -153,10 +153,8 @@ void SensorInit() {
 
 // Sensor update
 uint32_t start;
-float startAlt = 0;
 void ResetTime() {
 	start = HAL_GetTick();
-	startAlt = getZAlt();
 	sensorBuf.zero = 0;
 	sensorBuf.sampleCount = 0;
 	sensorBufIdx = 1;
@@ -166,16 +164,12 @@ uint32_t GetTime() {
 }
 
 State state;
-void SensorUpdate() {
+void SensorRawUpdate() {
 	BMI088_ReadAccelerometer(&imu);
 	BMI088_ReadGyroscope(&imu);
 	MS5607UncompensatedRead(&baroRaw);
 	MS5607Convert(&baroRaw, &baro);
 
-	state.altr = GetAlt((double)baro.pressure, (double)baro.temperature * 0.01f);
-	estimate(imu.acc_mps2, imu.gyr_rps, state.altr);
-
-	// Copy to state
 	state.time = GetTime();
 
 	state.axr = imu.acc_mps2[0];
@@ -186,16 +180,23 @@ void SensorUpdate() {
 	state.gzr = imu.gyr_rps[2];
 	state.baro = (float)baro.pressure;
 	state.temp = 0.01f * (float)baro.temperature;
+	state.altr = GetAlt((double)baro.pressure, (double)baro.temperature * 0.01f);
+}
 
-	state.ax = 0; // TODO: Make ax and ay actually get computed
-	state.ay = 0;
-	state.az = getZAccel();
+void SensorFilterReset() {
+	FilterInit(imu.acc_mps2, state.altr);
+}
+void SensorFilterUpdate() {
+	FilterUpdate(imu.gyr_rps, imu.acc_mps2, state.altr);
+	state.ax = globalAccel[0];
+	state.ay = globalAccel[1];
+	state.az = globalAccel[2];
 
-	state.vx = 0;
-	state.vy = 0;
-	state.vz = getZVel();
+	state.vx = velocity[0];
+	state.vy = velocity[1];
+	state.vz = velocity[2];
 
-	state.alt = getZAlt() - startAlt;
+	state.alt = altitude;
 }
 
 void WriteState(bool finished) {
@@ -209,9 +210,6 @@ void WriteState(bool finished) {
 		SPIF_WriteSector(&spif, sensorBufIdx, (uint8_t*)(&sensorBuf), sizeof(sensorBuf), 0);
 		sensorBufIdx++;
 		sensorBuf.sampleCount = 0;
-	}
-	if (finished) {
-		startAlt = 0;
 	}
 }
 
@@ -236,68 +234,3 @@ void SendData() { // send data to host
 	// Update LED for battery voltage
 	battVoltage = BattVoltage();
 }
-
-const int stdevSamples = 1000;
-void CalcStdev() {
-	float samples[stdevSamples][7]; // ax, ay, az, gx, gy, gz, altr
-	float sums[7];
-	memset(&sums, 0, sizeof(sums));
-	for (int i = 0; i < stdevSamples; i++) {
-		int ledVal = 255-(i*255/stdevSamples);
-		LEDWrite(0, ledVal, ledVal/2);
-
-
-		BMI088_ReadAccelerometer(&imu);
-		BMI088_ReadGyroscope(&imu);
-		MS5607UncompensatedRead(&baroRaw);
-		MS5607Convert(&baroRaw, &baro);
-		float sample[7];
-		sample[0] = imu.acc_mps2[0];
-		sample[1] = imu.acc_mps2[1];
-		sample[2] = imu.acc_mps2[2];
-		sample[3] = imu.gyr_rps[0];
-		sample[4] = imu.gyr_rps[1];
-		sample[5] = imu.gyr_rps[2];
-		sample[6] = GetAlt((double)baro.pressure, 0.01f * (double)baro.temperature);
-
-		for (int j = 0; j < 7; j++) {
-			sums[j] += sample[j];
-			printf("%f ", sample[j]);
-		}
-		printf("\n");
-
-		memcpy(samples[i], sample, sizeof(sample));
-	}
-
-	for (int i = 0; i < 7; i++) {
-		sums[i] /= stdevSamples;
-	}
-
-	// Calculate numerator
-	float numerator[7];
-	memset(&numerator, 0, sizeof(numerator));
-	for (int i = 0; i < stdevSamples; i++) {
-		for (int j = 0; j < 7; j++) {
-			numerator[j] += pow(samples[i][j] - sums[j], 2);
-		}
-	}
-	for (int i = 0; i < 7; i++) {
-		numerator[i] = sqrt(numerator[i] / (stdevSamples - 1));
-	}
-
-	// Get max
-	float tmp = fmax(numerator[0], numerator[1]);
-	float accelSigma = fmax(tmp, numerator[2]);
-	tmp = fmax(numerator[3], numerator[4]);
-	float gyroSigma = fmax(tmp, numerator[5]);
-	float baroSigma = numerator[6];
-
-	// Print
-	LEDWrite(64, 0, 0);
-	while (true) {
-		printf("MEAN: %f %f %f; SIGMA: %f %f %f\n (IMU mean doesn't really matter)", sums[0], sums[3], sums[6], accelSigma, gyroSigma, baroSigma);
-		HAL_Delay(1000);
-	}
-}
-
-// Use 0.2 as alpha for exponential moving average/first order IIR/low pass filter

@@ -113,7 +113,7 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-	 SensorUpdate();
+	 SensorRawUpdate();
 	 StateUpdate();
   }
   /* USER CODE END 3 */

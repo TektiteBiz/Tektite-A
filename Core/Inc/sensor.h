@@ -16,6 +16,7 @@
 #include "BMI088.h"
 #include "MS5607SPI.h"
 #include "spif.h"
+#include "filter.h"
 
 
 void LEDWrite(int r, int g, int b);
@@ -26,7 +27,9 @@ void ServoWriteS1(float angle);
 void ServoWriteS2(float angle);
 void ServoWriteS3(float angle);
 void ServoDetach();
-void SensorUpdate();
+void SensorRawUpdate();
+void SensorFilterUpdate();
+void SensorFilterReset();
 void ResetTime();
 void StoreConfig();
 uint32_t GetTime();

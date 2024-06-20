@@ -80,7 +80,7 @@ void StandbyUpdate() {
 	}
 
 	// Next state
-	if (state.azr < -0.8 && sensorBuf.zero != 0) { // Flipped upside down and no data
+	if (state.azr < -0.8 && abs(state.az) < 0.2 && sensorBuf.zero != 0) { // Flipped upside down (feel force up but absolute force is not up) and no data // TODO: Figure out if state.az is 1 or -1 or 0 when vertical, rn assuming 0
 		currentState = ARMED;
 		return;
 	}
@@ -88,6 +88,12 @@ void StandbyUpdate() {
 
 void ArmedUpdate() {
 	LEDWrite(255, 0, 0); // Red
+	float totalAccel = sqrt(pow(state.axr, 2) + pow(state.ayr, 2) + pow(state.azr, 2));
+	if (totalAccel < 10) {
+		SensorFilterReset(); // Reset filter if on launchpad
+	} else {
+		SensorFilterUpdate(); // Update filter when starting to accelerate
+	}
 
 	if (state.azr > 3) { // >4G acceleration = liftoff!
 		ResetTime();
@@ -98,6 +104,7 @@ void ArmedUpdate() {
 
 void BurnUpdate() {
 	LEDWrite(128, 0, 255); // Purple
+	SensorFilterUpdate();
 	WriteState(false);
 
 	if (GetTime() >= config.starttime) {
@@ -108,6 +115,7 @@ void BurnUpdate() {
 
 void ControlUpdate() {
 	LEDWrite(0, 255, 128); // Teal
+	SensorFilterUpdate();
 	WriteState(false);
 
 	if (state.vz < -1.5f) {
@@ -118,6 +126,7 @@ void ControlUpdate() {
 
 void DescentUpdate() {
 	LEDWrite(0, 0, 255); // Blue
+	SensorFilterUpdate();
 	WriteState(false);
 
 	if (abs(state.vz) < 1.5 && abs(state.alt) < 2) {
