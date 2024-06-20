@@ -9,6 +9,7 @@
 #define INC_STATES_H_
 
 #include "sensor.h"
+#include "sim.h"
 
 enum State {
 	STANDBY, // Ground, unarmed, can connect to computer

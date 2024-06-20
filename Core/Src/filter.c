@@ -9,10 +9,11 @@
 #include "algebra.h"
 
 float C[3][3];
+float altOffset = 0;
 float baroAlt; // First-order IIR filter/exponential moving average/low-pass filter
 uint32_t prev;
 
-float globalAccel[3] = {0.0, 0.0, 9.81}; // Global acceleration
+float globalAccel[3] = {0.0, 0.0, 0.0}; // Global acceleration
 float velocity[3] = {0.0, 0.0, 0.0};
 float altitude = 0;
 
@@ -27,7 +28,7 @@ void FilterInit(float a[3], float alt) {
 	normalizeVector(tmp);
 
 	float cx = atanf(tmp[1]/tmp[2]);
-	float cy = -asinf(tmp[0]/9.81);
+	float cy = -asinf(tmp[0]);
 
 	if (isnan(cx) || isnan(cy)) {
 		return;
@@ -54,7 +55,8 @@ void FilterInit(float a[3], float alt) {
 	velocity[2] = 0.0f;
 
 	// Initialize barometer filter
-	baroAlt = alt;
+	altOffset = alt;
+	baroAlt = 0;
 
 	prev = HAL_GetTick();
 }
@@ -73,7 +75,8 @@ void FilterUpdate(float g[3], float a[3], float alt) {
 
 	uint32_t time = HAL_GetTick();
 	if ((time - prev) == 0) {
-		return;
+		//return;
+		time++;
 	}
 	float dt = ((float)(time - prev))/1000.0f;
 	prev = time;
@@ -109,14 +112,14 @@ void FilterUpdate(float g[3], float a[3], float alt) {
 	velocity[1] = velocity[1] + dt*globalAccel[1];
 
 	// Barometer filter
-	baroAlt = (baroAlt * 0.5) + (alt * 0.5);
+	baroAlt = (baroAlt * 0.8) + ((alt - altOffset) * 0.2);
 	float zAcc = globalAccel[2] - 9.81;
-	float prevVel = velocity[2];
 	float prevAlt = altitude;
 
-	altitude = 0.6*(prevAlt + dt*prevVel+
-			zAcc*pow(dt, 2)/2) + (0.4 * baroAlt);
-	velocity[2] = 0.999*(prevVel + dt*zAcc*9.81) + 0.001*(altitude - prevAlt)/dt; // Ngl not sure if this is doing anything
+	altitude = 0.3*(prevAlt + dt*velocity[2] +
+			zAcc*pow(dt, 2)/2) + (0.7 * baroAlt);
+	globalAccel[2] = zAcc;
+	velocity[2] = velocity[2] + dt*globalAccel[2];
 }
 
 
