@@ -14,6 +14,9 @@ Command command;
 bool commandAvailable;
 
 
+float totalAccelHistory[12]; // Standby data
+int histIdx = 0;
+
 int noDetachUntil = 0; // For ServoMin/ServoMax command
 double battVoltage = 0;
 void StandbyUpdate() {
@@ -95,6 +98,10 @@ void StandbyUpdate() {
 	if (state.azr < -8 && sensorBuf.zero != 0) { // Flipped upside down
 		LEDWrite(0, 0, 0);
 		HAL_Delay(1000);
+		for (int i = 0; i < 12; i++) {
+			totalAccelHistory[i] = 100;
+		}
+		histIdx = 0;
 		currentState = ARMED;
 		return;
 	}
@@ -102,12 +109,31 @@ void StandbyUpdate() {
 
 void ArmedUpdate() {
 	LEDWrite(255, 0, 0); // Red
+
 	float totalAccel = sqrt(pow(state.axr, 2) + pow(state.ayr, 2) + pow(state.azr, 2));
-	if (totalAccel < 10 && totalAccel > 9.6) {
+	totalAccelHistory[histIdx] = totalAccel;
+
+	histIdx++;
+	if (histIdx >= 12) {
+		histIdx = 0;
+	}
+
+	float accelSum = 0;
+	for (int i = 0; i < 12; i++) {
+		accelSum += totalAccelHistory[i];
+	}
+	accelSum /= 12.0f;
+	//printf("%f\n", accelSum);
+	if (accelSum < 9.85 && accelSum > 9.75) {
 		SensorFilterReset(); // Reset filter if on launchpad
+		//LEDWrite(255, 255, 255);
 	} else {
 		SensorFilterUpdate(); // Update filter when starting to accelerate
+		//LEDWrite(255, 0, 0); // Red
 	}
+	ServoWriteS1(0);
+	ServoWriteS2(0);
+	ServoWriteS3(0);
 
 	if (state.azr > 30) { // >4G acceleration = liftoff!
 		ResetTime();
@@ -122,6 +148,10 @@ void BurnUpdate() {
 	//state.alt = baroAlt;
 	WriteState(false);
 
+	ServoWriteS1(0);
+	ServoWriteS2(0);
+	ServoWriteS3(0);
+
 	if (GetTime() >= config.starttime) {
 		currentState = CONTROL;
 		return;
@@ -131,7 +161,7 @@ void BurnUpdate() {
 void ControlUpdate() {
 	LEDWrite(0, 255, 128); // Teal
 	SensorFilterUpdate();
-	float Cd = 2*(state.az + 9.81)/(config.alpha*pow(state.vz, 2));
+	float Cd = fabsf(-2*(state.az + 9.81)/(config.alpha*pow(state.vz, 2)));
 	state.pre = getApogee(((float)GetTime())/1000.0f, state.alt, state.vz, sqrt(pow(state.vx, 2) + pow(state.vy, 2)), Cd);
 	WriteState(false);
 
@@ -162,7 +192,9 @@ void DescentUpdate() {
 	SensorFilterUpdate();
 	WriteState(false);
 
-	if (abs(state.vz) < 1.5 && abs(state.alt) < 2) {
+	ServoDetach();
+
+	if (/*abs(state.vz) < 1.5 &&*/ abs(state.alt) < 2) { // TODO: Handle velocity
 		if (sensorBuf.sampleCount > 0) {
 			WriteState(true);
 		}

@@ -58,7 +58,7 @@ void MS5607Init() {
 }
 
 double GetAlt(double pressure, double temp) {
-	return ((pow(pressure/101325.0f, 0.1902f) - 1.0f) * (temp + 273.15))/0.0065f;
+	return ((pow(101325.0f/pressure, 0.1902f) - 1.0f) * (temp + 273.15))/0.0065f;
 }
 
 void SPIFInit() {

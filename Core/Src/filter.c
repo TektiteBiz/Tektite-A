@@ -81,6 +81,9 @@ void FilterUpdate(float g[3], float a[3], float alt) {
 	float dt = ((float)(time - prev))/1000.0f;
 	prev = time;
 
+
+	// Rotation matrix code is from https://huskiecommons.lib.niu.edu/cgi/viewcontent.cgi?article=1032&context=allgraduate-thesesdissertations
+
 	// Calculate sigma
 	float sig;
 	vectorLength(&sig, g);
