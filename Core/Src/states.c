@@ -25,6 +25,8 @@ void StandbyUpdate() {
 	} else if (HAL_GetTick() < noDetachUntil) {
 		int val = (noDetachUntil - HAL_GetTick())/2;
 		LEDWrite(val, val, val);
+	} else if (battVoltage < 5.1) { // Powered off of USB
+			LEDWrite(32, 32, 32); // White for USB
 	} else if (battVoltage < 7.4) {
 		LEDWrite(0, 0, 128); // Blue for low battery
 	} else {
@@ -95,7 +97,7 @@ void StandbyUpdate() {
 	}
 
 	// Next state
-	if (state.azr < -8 && sensorBuf.zero != 0) { // Flipped upside down
+	if (state.azr < -8 && sensorBuf.zero != 0 && battVoltage > 5.1) { // Flipped upside down, no flight data, and powered off of battery
 		LEDWrite(0, 0, 0);
 		HAL_Delay(1000);
 		for (int i = 0; i < 12; i++) {
