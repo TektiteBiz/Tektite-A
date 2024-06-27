@@ -9,7 +9,7 @@
 #define INC_SIM_H_
 
 
-float getApogee(float ti, float xi, float vzi, float vxi, float Cd);
+float getApogee(float ti, float xi, float vzi, float Cd);
 
 
 #endif /* INC_SIM_H_ */

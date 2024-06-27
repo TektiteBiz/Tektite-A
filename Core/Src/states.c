@@ -164,7 +164,7 @@ void ControlUpdate() {
 	LEDWrite(0, 255, 128); // Teal
 	SensorFilterUpdate();
 	float Cd = fabsf(-2*(state.az + 9.81)/(config.alpha*pow(state.vz, 2)));
-	state.pre = getApogee(((float)GetTime())/1000.0f, state.alt, state.vz, sqrt(pow(state.vx, 2) + pow(state.vy, 2)), Cd);
+	state.pre = getApogee(((float)GetTime())/1000.0f, state.alt, state.vz, Cd);
 	WriteState(false);
 
 	if (config.control) {
