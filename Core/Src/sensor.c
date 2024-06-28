@@ -10,9 +10,8 @@
 // BMI088
 BMI088 imu;
 
-//MS5607
-struct MS5607UncompensatedValues baroRaw;
-struct MS5607Readings baro;
+// BMP280
+struct Measurement baro;
 
 // W25Q128
 SPIF_HandleTypeDef spif;
@@ -51,8 +50,8 @@ void BMI088Init() {
 	}
 }
 
-void MS5607Init() {
-	if (MS5607_Init(&hspi1, BARO_CS_GPIO_Port, BARO_CS_Pin) == MS5607_STATE_FAILED) {
+void BMP280Init() {
+	if (BMP280Initialize(&hspi1) != 0) {
 		Error("MS5607 Initialization Failure");
 	}
 }
@@ -138,7 +137,7 @@ void SensorInit() {
 	LEDInit();
 	LEDWrite(128, 128, 128); // Initialize phase
 
-	MS5607Init();
+	BMP280Init();
 	BMI088Init();
 	SPIFInit();
 	ServoInit();
@@ -167,8 +166,7 @@ State state;
 void SensorRawUpdate() {
 	BMI088_ReadAccelerometer(&imu);
 	BMI088_ReadGyroscope(&imu);
-	MS5607UncompensatedRead(&baroRaw);
-	MS5607Convert(&baroRaw, &baro);
+	BMP280Measure(&baro);
 
 	state.time = GetTime();
 
@@ -178,9 +176,9 @@ void SensorRawUpdate() {
 	state.gxr = imu.gyr_rps[0];
 	state.gyr = imu.gyr_rps[1];
 	state.gzr = imu.gyr_rps[2];
-	state.baro = (float)baro.pressure;
-	state.temp = 0.01f * (float)baro.temperature;
-	state.altr = GetAlt((double)baro.pressure, (double)baro.temperature * 0.01f);
+	state.baro = baro.pressure;
+	state.temp = baro.temperature;
+	state.altr = GetAlt(state.baro, state.temp);
 }
 
 void SensorFilterReset() {

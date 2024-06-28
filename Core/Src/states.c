@@ -196,7 +196,7 @@ void DescentUpdate() {
 
 	ServoDetach();
 
-	if (/*abs(state.vz) < 1.5 &&*/ abs(state.alt) < 2) { // TODO: Handle velocity
+	if (abs(state.vz) < 1.5 && abs(state.alt) < 2) {
 		if (sensorBuf.sampleCount > 0) {
 			WriteState(true);
 		}

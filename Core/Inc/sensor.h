@@ -14,7 +14,7 @@
 #include <stdio.h>
 
 #include "BMI088.h"
-#include "MS5607SPI.h"
+#include "BMP280.h"
 #include "spif.h"
 #include "filter.h"
 

@@ -115,7 +115,7 @@ void FilterUpdate(float g[3], float a[3], float alt) {
 	velocity[1] = velocity[1] + dt*globalAccel[1];
 
 	// Barometer filter
-	baroAlt = (baroAlt * 0.8) + ((alt - altOffset) * 0.2);
+	baroAlt = (baroAlt * 0.1) + ((alt - altOffset) * 0.9);
 	float zAcc = globalAccel[2] - 9.81;
 	float prevAlt = altitude;
 
