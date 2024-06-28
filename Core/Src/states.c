@@ -16,9 +16,10 @@ bool commandAvailable;
 
 float totalAccelHistory[12]; // Standby data
 int histIdx = 0;
+int sampleCount = 0;
 
 int noDetachUntil = 0; // For ServoMin/ServoMax command
-double battVoltage = 0;
+float battVoltage = 0;
 void StandbyUpdate() {
 	if (sensorBuf.zero == 0) { // Has data!
 		LEDWrite(255, 128, 0); // Orange
@@ -109,6 +110,8 @@ void StandbyUpdate() {
 	}
 }
 
+
+float uncompensatedAltOffset = 0;
 void ArmedUpdate() {
 	LEDWrite(255, 0, 0); // Red
 
@@ -128,6 +131,7 @@ void ArmedUpdate() {
 	//printf("%f\n", accelSum);
 	if (accelSum < 9.85 && accelSum > 9.75) {
 		SensorFilterReset(); // Reset filter if on launchpad
+		uncompensatedAltOffset = GetUncompensatedAlt(state.baro);
 		//LEDWrite(255, 255, 255);
 	} else {
 		SensorFilterUpdate(); // Update filter when starting to accelerate
@@ -139,6 +143,7 @@ void ArmedUpdate() {
 
 	if (state.azr > 30) { // >4G acceleration = liftoff!
 		ResetTime();
+		sampleCount = 0;
 		currentState = BURN;
 		return;
 	}
@@ -148,7 +153,10 @@ void BurnUpdate() {
 	LEDWrite(128, 0, 255); // Purple
 	SensorFilterUpdate();
 	//state.alt = baroAlt;
-	WriteState(false);
+	sampleCount++;
+	if (sampleCount % 10 == 0) { // Write data every 10 samples on ascent
+		WriteState(false);
+	}
 
 	ServoWriteS1(0);
 	ServoWriteS2(0);
@@ -165,10 +173,15 @@ void ControlUpdate() {
 	SensorFilterUpdate();
 	float Cd = fabsf(-2*(state.az + 9.81)/(config.alpha*pow(state.vz, 2)));
 	state.pre = getApogee(((float)GetTime())/1000.0f, state.alt, state.vz, Cd);
-	WriteState(false);
+	float target = ((GetUncompensatedAlt(state.baro) - uncompensatedAltOffset)/state.alt)*config.param; // Un-temperature compensate the target altitude
+
+	sampleCount++;
+	if (sampleCount % 10 == 0) { // Write data every 10 samples on ascent
+		WriteState(false);
+	}
 
 	if (config.control) {
-		float ang = state.s1 + config.P*(state.pre - config.param);
+		float ang = state.s1 + config.P*(state.pre - target);
 		if (ang < 0.0f) {
 			ang = 0.0f;
 		} else if (ang > 90.0f) {
@@ -192,7 +205,11 @@ void ControlUpdate() {
 void DescentUpdate() {
 	LEDWrite(160, 32, 240); // Purple
 	SensorFilterUpdate();
-	WriteState(false);
+
+	sampleCount++;
+	if (sampleCount % 20 == 0) { // Write every 20 samples on descent
+		WriteState(false);
+	}
 
 	ServoDetach();
 

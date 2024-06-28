@@ -22,7 +22,8 @@
 void LEDWrite(int r, int g, int b);
 void Error(char* err);
 void SensorInit();
-double BattVoltage();
+float BattVoltage();
+float GetUncompensatedAlt(float pressure);
 void ServoWriteS1(float angle);
 void ServoWriteS2(float angle);
 void ServoWriteS3(float angle);

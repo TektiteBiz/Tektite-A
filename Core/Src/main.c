@@ -103,6 +103,19 @@ int main(void)
   SensorInit();
   //CalcStdev();
 
+  /* Filter testing code
+  SensorRawUpdate();
+  SensorFilterReset();
+  int sc = 0;
+  while (1) {
+	  SensorRawUpdate();
+	  SensorFilterUpdate();
+	  sc++;
+	  if (sc % 50 == 0) {
+		 printf("alt:%f,vz:%f,az:%f,altr:%f\n", state.alt, state.vz, state.az, state.altr);
+	  }
+  }*/
+
   /* USER CODE END 2 */
 
   /* Infinite loop */

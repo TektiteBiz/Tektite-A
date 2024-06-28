@@ -37,10 +37,10 @@ void LEDInit() {
 	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
 }
 
-double BattVoltage() {
+float BattVoltage() {
 	HAL_ADC_Start(&hadc1);
 	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
-	return ((double)HAL_ADC_GetValue(&hadc1))*0.00251984291; // x/4096 * (100+47)/47 [voltage resistor] * 3.3 [vref]
+	return ((float)HAL_ADC_GetValue(&hadc1))*0.00251984291f; // x/4096 * (100+47)/47 [voltage resistor] * 3.3 [vref]
 }
 
 void BMI088Init() {
@@ -56,8 +56,12 @@ void BMP280Init() {
 	}
 }
 
-double GetAlt(double pressure, double temp) {
-	return ((pow(101325.0f/pressure, 0.1902f) - 1.0f) * (temp + 273.15))/0.0065f;
+float GetAlt(float pressure, float temp) {
+	return ((powf(101325.0f/pressure, 0.1902f) - 1.0f) * (temp + 273.15))/0.0065f;
+}
+
+float GetUncompensatedAlt(float pressure) {
+	return 44330.0f*(1-powf(pressure/101325.0f, 0.1902f));
 }
 
 void SPIFInit() {
@@ -132,7 +136,7 @@ void ServoDetach() {
 }
 
 
-extern double battVoltage;
+extern float battVoltage;
 void SensorInit() {
 	LEDInit();
 	LEDWrite(128, 128, 128); // Initialize phase

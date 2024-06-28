@@ -73,12 +73,12 @@ void FilterUpdate(float g[3], float a[3], float alt) {
 		g[2] = 0.00000001;
 	}
 
-	uint32_t time = HAL_GetTick();
+	uint32_t time = GetMicros();
 	if ((time - prev) == 0) {
 		//return;
 		time++;
 	}
-	float dt = ((float)(time - prev))/1000.0f;
+	float dt = ((float)(time - prev))/1000000.0f;
 	prev = time;
 
 
