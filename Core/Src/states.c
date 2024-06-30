@@ -17,6 +17,7 @@ bool commandAvailable;
 float totalAccelHistory[12]; // Standby data
 int histIdx = 0;
 int sampleCount = 0;
+uint32_t lastWrite = 0;
 
 int noDetachUntil = 0; // For ServoMin/ServoMax command
 float battVoltage = 0;
@@ -149,13 +150,17 @@ void ArmedUpdate() {
 	}
 }
 
+
 void BurnUpdate() {
 	LEDWrite(128, 0, 255); // Purple
 	SensorFilterUpdate();
-	//state.alt = baroAlt;
+
 	sampleCount++;
-	if (sampleCount % 10 == 0) { // Write data every 10 samples on ascent
+	if (HAL_GetTick() - lastWrite > 10) { // Write data every 10 milliseconds on ascent
+		state.samples = sampleCount;
 		WriteState(false);
+		lastWrite = HAL_GetTick();
+		sampleCount = 0;
 	}
 
 	ServoWriteS1(0);
@@ -176,8 +181,11 @@ void ControlUpdate() {
 	float target = ((GetUncompensatedAlt(state.baro) - uncompensatedAltOffset)/state.alt)*config.param; // Un-temperature compensate the target altitude
 
 	sampleCount++;
-	if (sampleCount % 10 == 0) { // Write data every 10 samples on ascent
+	if (HAL_GetTick() - lastWrite > 10) { // Write data every 10 milliseconds on ascent
+		state.samples = sampleCount;
 		WriteState(false);
+		lastWrite = HAL_GetTick();
+		sampleCount = 0;
 	}
 
 	if (config.control) {
@@ -207,11 +215,20 @@ void DescentUpdate() {
 	SensorFilterUpdate();
 
 	sampleCount++;
-	if (sampleCount % 20 == 0) { // Write every 20 samples on descent
+	if (HAL_GetTick() - lastWrite > 20) { // Write data every 20 milliseconds on descent
+		state.samples = sampleCount;
 		WriteState(false);
+		lastWrite = HAL_GetTick();
+		sampleCount = 0;
 	}
 
-	ServoDetach();
+	if (state.alt > 50) { // Make canards vertical
+		ServoWriteS1(0);
+		ServoWriteS2(0);
+		ServoWriteS3(0);
+	} else {
+		ServoDetach();
+	}
 
 	if (abs(state.vz) < 1.5 && abs(state.alt) < 2) {
 		if (sensorBuf.sampleCount > 0) {

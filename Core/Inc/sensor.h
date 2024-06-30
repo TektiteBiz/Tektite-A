@@ -68,6 +68,7 @@ typedef struct {
 	float s3;
 
 	uint8_t state;
+	uint8_t samples;
 } State;
 
 extern State state;

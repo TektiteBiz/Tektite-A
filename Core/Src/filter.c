@@ -58,7 +58,7 @@ void FilterInit(float a[3], float alt) {
 	altOffset = alt;
 	baroAlt = 0;
 
-	prev = HAL_GetTick();
+	prev = GetMicros();
 }
 
 void FilterUpdate(float g[3], float a[3], float alt) {

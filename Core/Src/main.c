@@ -103,8 +103,8 @@ int main(void)
   SensorInit();
   //CalcStdev();
 
-  /* Filter testing code
-  SensorRawUpdate();
+  // Filter testing code
+  /*SensorRawUpdate();
   SensorFilterReset();
   int sc = 0;
   while (1) {
