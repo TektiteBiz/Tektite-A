@@ -195,8 +195,8 @@ uint8_t BMP280Initialize(SPI_HandleTypeDef *handle)
 	delay_ms(500);
 
 	// BEGIN OF CONFIGURATION ----------------------------------
-	setPressureOversampling(oversampling_x16);
-	setTemperatureOversampling(oversampling_x2);
+	setPressureOversampling(oversampling_x4);
+	setTemperatureOversampling(oversampling_x1);
 
 	setPowerMode(mode_normal);
 	setFilterCoefficient(filter_coeff_16);

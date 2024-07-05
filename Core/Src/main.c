@@ -61,8 +61,6 @@ extern uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-uint8_t testWrite[4] = {1, 2, 3, 4};
-uint8_t testRead[4];
 /* USER CODE END 0 */
 
 /**
@@ -104,15 +102,31 @@ int main(void)
   //CalcStdev();
 
   // Filter testing code
-  /*SensorRawUpdate();
+  SensorRawUpdate();
   SensorFilterReset();
-  int sc = 0;
+  float sigmaTot = 0;
+
+  /*float total = 0;
+  float values[1000];
+  for (int i = 0; i < 1000; i++) {
+	  LEDWrite(i/6, i/6, i/6);
+	  SensorRawUpdate();
+	  total += state.altr;
+	  values[i] = state.altr;
+	  HAL_Delay(12);
+  }
+  for (int i = 0; i < 1000; i++) {
+	  sigmaTot += powf(((total/1000.0f)-values[i]), 2.0f);
+  }
+  sigmaTot = sqrtf(sigmaTot/999.0f);*/
+
+  /*int sc = 0;
   while (1) {
 	  SensorRawUpdate();
 	  SensorFilterUpdate();
 	  sc++;
 	  if (sc % 50 == 0) {
-		 printf("alt:%f,vz:%f,az:%f,altr:%f\n", state.alt, state.vz, state.az, state.altr);
+		 printf("alt:%f,vz:%f,az:%f,altr:%f,vD:%f,sigma:%f\n", state.alt, state.vz, state.az, state.altr, delayedVel, sigmaTot);
 	  }
   }*/
 
@@ -125,7 +139,6 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
 	 SensorRawUpdate();
 	 StateUpdate();
   }

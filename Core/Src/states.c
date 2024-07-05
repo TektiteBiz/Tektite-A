@@ -141,6 +141,8 @@ void ArmedUpdate() {
 	ServoWriteS1(0);
 	ServoWriteS2(0);
 	ServoWriteS3(0);
+	state.servo = 0;
+	state.target = 0;
 
 	if (state.azr > 30) { // >4G acceleration = liftoff!
 		ResetTime();
@@ -166,6 +168,7 @@ void BurnUpdate() {
 	ServoWriteS1(0);
 	ServoWriteS2(0);
 	ServoWriteS3(0);
+	state.servo = 0;
 
 	if (GetTime() >= config.starttime) {
 		currentState = CONTROL;
@@ -177,8 +180,9 @@ void ControlUpdate() {
 	LEDWrite(0, 255, 128); // Teal
 	SensorFilterUpdate();
 	float Cd = fabsf(-2*(state.az + 9.81)/(config.alpha*pow(state.vz, 2)));
-	state.pre = getApogee(((float)GetTime())/1000.0f, state.alt, state.vz, Cd);
+	state.pre = getApogee(((float)GetTime())/1000.0f, state.alt, delayedVel, Cd);
 	float target = ((GetUncompensatedAlt(state.baro) - uncompensatedAltOffset)/state.alt)*config.param; // Un-temperature compensate the target altitude
+	state.target = target;
 
 	sampleCount++;
 	if (HAL_GetTick() - lastWrite > 10) { // Write data every 10 milliseconds on ascent
@@ -189,7 +193,7 @@ void ControlUpdate() {
 	}
 
 	if (config.control) {
-		float ang = state.s1 + config.P*(state.pre - target);
+		float ang = state.servo + config.P*(state.pre - target);
 		if (ang < 0.0f) {
 			ang = 0.0f;
 		} else if (ang > 90.0f) {
@@ -198,10 +202,12 @@ void ControlUpdate() {
 		ServoWriteS1(ang);
 		ServoWriteS2(ang);
 		ServoWriteS3(ang);
+		state.servo = ang;
 	} else {
 		ServoWriteS1(config.param);
 		ServoWriteS2(config.param);
 		ServoWriteS3(config.param);
+		state.servo = config.param;
 	}
 
 	if (state.vz < -3.0f) {
@@ -222,6 +228,8 @@ void DescentUpdate() {
 		sampleCount = 0;
 	}
 
+	state.servo = 0;
+
 	if (state.alt > 50) { // Make canards vertical
 		ServoWriteS1(0);
 		ServoWriteS2(0);
@@ -230,7 +238,7 @@ void DescentUpdate() {
 		ServoDetach();
 	}
 
-	if (abs(state.vz) < 1.5 && abs(state.alt) < 2) {
+	if (abs(state.az) > 20 && abs(state.alt) < 10) { // Detect shaking on impact with the ground
 		if (sensorBuf.sampleCount > 0) {
 			WriteState(true);
 		}

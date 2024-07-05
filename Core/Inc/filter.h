@@ -4,3 +4,7 @@ extern float globalAccel[3];
 extern float velocity[3];
 extern float altitude;
 extern float baroAlt;
+extern float altOffset;
+
+// delayed values
+extern float delayedVel;

@@ -115,21 +115,15 @@ void LoadConfig() {
 // Divide value by 10 to get % of cycle that is spent on this, each cycle is 20ms since 50Hz
 // 0.9ms pwm = 0.9/20 * 1000 = 45, 2.1 = 105
 void ServoWriteS1(float angle) {
-	state.s1 = angle;
 	htim2.Instance->CCR1 = (int)(angle/120.0f * (float)(config.s1max-config.s1min)) + config.s1min;
 }
 void ServoWriteS2(float angle) {
-	state.s2 = angle;
 	htim2.Instance->CCR2 = (int)(angle/120.0f * (float)(config.s2max-config.s2min)) + config.s2min;
 }
 void ServoWriteS3(float angle) {
-	state.s3 = angle;
 	htim2.Instance->CCR3 = (int)(angle/120.0f * (float)(config.s3max-config.s3min)) + config.s3min;
 }
 void ServoDetach() {
-	state.s1 = 0;
-	state.s2 = 0;
-	state.s3 = 0;
 	htim2.Instance->CCR1 = 0;
 	htim2.Instance->CCR2 = 0;
 	htim2.Instance->CCR3 = 0;
@@ -182,7 +176,7 @@ void SensorRawUpdate() {
 	state.gzr = imu.gyr_rps[2];
 	state.baro = baro.pressure;
 	state.temp = baro.temperature;
-	state.altr = GetAlt(state.baro, state.temp);
+	state.altr = GetAlt(state.baro, state.temp) - altOffset;
 }
 
 void SensorFilterReset() {

@@ -10,12 +10,21 @@
 
 float C[3][3];
 float altOffset = 0;
-float baroAlt; // First-order IIR filter/exponential moving average/low-pass filter
 uint32_t prev;
 
 float globalAccel[3] = {0.0, 0.0, 0.0}; // Global acceleration
 float velocity[3] = {0.0, 0.0, 0.0};
 float altitude = 0;
+
+
+uint32_t startTime;
+const uint32_t delay = 100; // ms
+float timeBuffer[40];
+float velBuffer[40];
+float accelBuffer[40];
+int bufferIdx = 0;
+
+float delayedVel = 0.0f;
 
 // After this, acceleration will be 1 vertical and 0 every other way and velocity and altitude will be 0
 void FilterInit(float a[3], float alt) {
@@ -56,9 +65,11 @@ void FilterInit(float a[3], float alt) {
 
 	// Initialize barometer filter
 	altOffset = alt;
-	baroAlt = 0;
+	altitude = 0;
 
 	prev = GetMicros();
+	bufferIdx = 0;
+	startTime = HAL_GetTick();
 }
 
 void FilterUpdate(float g[3], float a[3], float alt) {
@@ -114,15 +125,46 @@ void FilterUpdate(float g[3], float a[3], float alt) {
 	velocity[0] = velocity[0] + dt*globalAccel[0];
 	velocity[1] = velocity[1] + dt*globalAccel[1];
 
-	// Barometer filter
-	baroAlt = (baroAlt * 0.1) + ((alt - altOffset) * 0.9);
 	float zAcc = globalAccel[2] - 9.81;
-	float prevAlt = altitude;
-
-	altitude = 0.3*(prevAlt + dt*velocity[2] +
-			zAcc*pow(dt, 2)/2) + (0.7 * baroAlt);
 	globalAccel[2] = zAcc;
 	velocity[2] = velocity[2] + dt*globalAccel[2];
+
+	// Calculate time delay
+	uint32_t tick = HAL_GetTick();
+	if (tick - timeBuffer[bufferIdx] > 10) {
+		bufferIdx++;
+		if (bufferIdx >= 40) {
+			bufferIdx = 0;
+		}
+		timeBuffer[bufferIdx] = tick;
+		accelBuffer[bufferIdx] = zAcc;
+		velBuffer[bufferIdx] = velocity[2];
+	}
+
+	if (tick - startTime < delay) {
+		altitude = alt;
+		return;
+	}
+
+
+	// Find the value from times
+	int timeInd = bufferIdx;
+	for (int i = 0; i < 40; i++) {
+		if (tick - timeBuffer[timeInd] > delay) {
+			break;
+		}
+		timeInd--;
+		if (timeInd < 0) {
+			timeInd = 39;
+		}
+	}
+
+
+	// Barometer filter
+	float prevAlt = altitude;
+	altitude = 0.99f*(prevAlt + dt*velBuffer[timeInd] +
+			accelBuffer[timeInd]*pow(dt, 2)/2) + (0.01f * alt); // Why is this so different?
+	delayedVel = velBuffer[timeInd];
 }
 
 
