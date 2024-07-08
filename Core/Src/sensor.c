@@ -180,7 +180,7 @@ void SensorRawUpdate() {
 }
 
 void SensorFilterReset() {
-	FilterInit(imu.acc_mps2, state.altr);
+	FilterInit(imu.acc_mps2, GetAlt(state.baro, state.temp));
 }
 void SensorFilterUpdate() {
 	FilterUpdate(imu.gyr_rps, imu.acc_mps2, state.altr);

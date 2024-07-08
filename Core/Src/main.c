@@ -104,7 +104,8 @@ int main(void)
   // Filter testing code
   SensorRawUpdate();
   SensorFilterReset();
-  float sigmaTot = 0;
+
+  //float sigmaTot = 0;
 
   /*float total = 0;
   float values[1000];

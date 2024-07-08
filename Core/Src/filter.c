@@ -163,7 +163,7 @@ void FilterUpdate(float g[3], float a[3], float alt) {
 	// Barometer filter
 	float prevAlt = altitude;
 	altitude = 0.99f*(prevAlt + dt*velBuffer[timeInd] +
-			accelBuffer[timeInd]*pow(dt, 2)/2) + (0.01f * alt); // Why is this so different?
+			accelBuffer[timeInd]*pow(dt, 2)/2) + (0.01f * alt); // Why is it 0.99 and 0.01?
 	delayedVel = velBuffer[timeInd];
 }
 

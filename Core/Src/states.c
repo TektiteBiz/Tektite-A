@@ -181,7 +181,7 @@ void ControlUpdate() {
 	SensorFilterUpdate();
 	float Cd = fabsf(-2*(state.az + 9.81)/(config.alpha*pow(state.vz, 2)));
 	state.pre = getApogee(((float)GetTime())/1000.0f, state.alt, delayedVel, Cd);
-	float target = ((GetUncompensatedAlt(state.baro) - uncompensatedAltOffset)/state.alt)*config.param; // Un-temperature compensate the target altitude
+	float target = (state.alt/(GetUncompensatedAlt(state.baro) - uncompensatedAltOffset))*config.param; // Un-temperature compensate the target altitude
 	state.target = target;
 
 	sampleCount++;
