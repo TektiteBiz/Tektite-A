@@ -13,6 +13,37 @@ enum State currentState = STANDBY;
 Command command;
 bool commandAvailable;
 
+ReplayData replayPacket[8];
+void ReplayFlight() {
+	LEDWrite(115, 3, 170);
+	replayPacket[0].delay = 1;
+	uint8_t ack = 1;
+	while (1) {
+		CDC_Transmit_FS(&ack, sizeof(ack));
+
+		while (!commandAvailable) {
+			HAL_Delay(1);
+		}
+
+		for (int i = 0; i < 8; i++) {
+			if (replayPacket[i].delay < 0) {
+				ServoWriteS1(0);
+				ServoWriteS2(0);
+				ServoWriteS3(0);
+				HAL_Delay(250);
+				return;
+			}
+
+			HAL_Delay(replayPacket[i].delay);
+			ServoWriteS1(replayPacket[i].servo);
+			ServoWriteS2(replayPacket[i].servo);
+			ServoWriteS3(replayPacket[i].servo);
+		}
+	}
+	LEDWrite(0, 0, 0);
+}
+
+
 
 float totalAccelHistory[12]; // Standby data
 int histIdx = 0;
@@ -94,6 +125,11 @@ void StandbyUpdate() {
 			case DataRead:
 				SendData();
 				break;
+
+			case FlightReplay:
+				ReplayFlight();
+				break;
+
 		}
 		commandAvailable = false;
 	}
@@ -112,7 +148,6 @@ void StandbyUpdate() {
 }
 
 
-float uncompensatedAltOffset = 0;
 void ArmedUpdate() {
 	LEDWrite(255, 0, 0); // Red
 
@@ -132,7 +167,6 @@ void ArmedUpdate() {
 	//printf("%f\n", accelSum);
 	if (accelSum < 9.85 && accelSum > 9.75) {
 		SensorFilterReset(); // Reset filter if on launchpad
-		uncompensatedAltOffset = GetUncompensatedAlt(state.baro);
 		//LEDWrite(255, 255, 255);
 	} else {
 		SensorFilterUpdate(); // Update filter when starting to accelerate
@@ -179,9 +213,10 @@ void BurnUpdate() {
 void ControlUpdate() {
 	LEDWrite(0, 255, 128); // Teal
 	SensorFilterUpdate();
-	float Cd = fabsf(-2*(state.az + 9.81)/(config.alpha*pow(state.vz, 2)));
+	float Cd = fabsf(-2*config.mass*(state.az + 9.81)/(config.alpha*pow(state.vz, 2)));
 	state.pre = getApogee(((float)GetTime())/1000.0f, state.alt, delayedVel, Cd);
-	float target = (state.alt/(GetUncompensatedAlt(state.baro) - uncompensatedAltOffset))*config.param; // Un-temperature compensate the target altitude
+	//float target = (state.alt/(GetUncompensatedAlt(state.baro) - uncompensatedAltOffset))*config.param; // Un-temperature compensate the target altitude
+	float target = ((state.temp + 273.15)/286.65f)*config.param; // Un-temperature compensate the target altitude (using algebra), https://physics.stackexchange.com/questions/333475/how-to-calculate-altitude-from-current-temperature-and-pressure
 	state.target = target;
 
 	sampleCount++;

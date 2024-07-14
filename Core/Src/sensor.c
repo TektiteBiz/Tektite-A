@@ -56,12 +56,8 @@ void BMP280Init() {
 	}
 }
 
-float GetAlt(float pressure, float temp) {
-	return ((powf(101325.0f/pressure, 0.1902f) - 1.0f) * (temp + 273.15))/0.0065f;
-}
-
-float GetUncompensatedAlt(float pressure) {
-	return 44330.0f*(1-powf(pressure/101325.0f, 0.1902f));
+float GetAlt(float pressure, float temp, float initialPressure) {
+	return ((powf(initialPressure/pressure, 0.1902f) - 1.0f) * (temp + 273.15))/0.0065f;
 }
 
 void SPIFInit() {
@@ -160,6 +156,8 @@ uint32_t GetTime() {
 	return HAL_GetTick() - start;
 }
 
+
+float initialPressure = 101325.0f;
 State state;
 void SensorRawUpdate() {
 	BMI088_ReadAccelerometer(&imu);
@@ -176,11 +174,12 @@ void SensorRawUpdate() {
 	state.gzr = imu.gyr_rps[2];
 	state.baro = baro.pressure;
 	state.temp = baro.temperature;
-	state.altr = GetAlt(state.baro, state.temp) - altOffset;
+	state.altr = GetAlt(state.baro, state.temp, initialPressure);
 }
 
 void SensorFilterReset() {
-	FilterInit(imu.acc_mps2, GetAlt(state.baro, state.temp));
+	initialPressure = state.baro;
+	FilterInit(imu.acc_mps2, GetAlt(state.baro, state.temp, initialPressure));
 }
 void SensorFilterUpdate() {
 	FilterUpdate(imu.gyr_rps, imu.acc_mps2, state.altr);

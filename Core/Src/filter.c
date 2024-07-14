@@ -9,7 +9,6 @@
 #include "algebra.h"
 
 float C[3][3];
-float altOffset = 0;
 uint32_t prev;
 
 float globalAccel[3] = {0.0, 0.0, 0.0}; // Global acceleration
@@ -64,7 +63,6 @@ void FilterInit(float a[3], float alt) {
 	velocity[2] = 0.0f;
 
 	// Initialize barometer filter
-	altOffset = alt;
 	altitude = 0;
 
 	prev = GetMicros();

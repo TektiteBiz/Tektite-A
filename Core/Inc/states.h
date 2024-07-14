@@ -28,6 +28,7 @@ enum CommandType {
 	Status,
 	ConfigWrite,
 	DataRead,
+	FlightReplay,
 };
 #pragma pack(1)
 typedef struct {
@@ -43,5 +44,13 @@ typedef struct {
 
 extern Command command;
 extern bool commandAvailable;
+
+#pragma pack(1)
+typedef struct {
+	int delay; //ms
+	float servo;
+} ReplayData;
+
+extern ReplayData replayPacket[8];
 
 #endif /* INC_STATES_H_ */
