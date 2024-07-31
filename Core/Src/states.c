@@ -137,7 +137,16 @@ void StandbyUpdate() {
 	// Next state
 	if (state.azr < -8 && sensorBuf.zero != 0 && battVoltage > 5.1) { // Flipped upside down, no flight data, and powered off of battery
 		LEDWrite(0, 0, 0);
-		HAL_Delay(1000);
+		uint32_t start = HAL_GetTick();
+		while (HAL_GetTick() - start < 1000) { // Wait for 1 second of holding upside down
+			SensorRawUpdate();
+			if (state.azr > -8) {
+				return;
+			}
+			HAL_Delay(1);
+		}
+
+		// Arm rocket
 		for (int i = 0; i < 12; i++) {
 			totalAccelHistory[i] = 100;
 		}
