@@ -223,6 +223,10 @@ void BurnUpdate() {
 	}
 }
 
+#ifdef LANDING
+uint32_t pyroStart = 0;
+#endif
+
 void ControlUpdate() {
 	LEDWrite(0, 255, 128); // Teal
 	SensorFilterUpdate();
@@ -268,6 +272,9 @@ void ControlUpdate() {
 
 	if (state.vz < -3.0f) {
 		currentState = DESCENT;
+		#ifdef LANDING
+		pyroStart = 0;
+		#endif
 		return;
 	}
 }
@@ -288,14 +295,16 @@ void DescentUpdate() {
 
 	#ifdef LANDING
 	// Servo output 2 used for pyro channel
-	uint32_t pyroStart = 0;
-	if (state.vz > -55 && state.alt > 70) {
+	if (state.vz > -52.5 && state.alt > 88.5) {
 		ServoWriteS1(0);
 		ServoWriteS2(0);
 		ServoWriteS3(0);
 	} else if (HAL_GetTick() - pyroStart > 1000 && pyroStart != 0) {
 		ServoDetach();
 	} else { // Fire pyro channel
+		if (pyroStart == 0) {
+			pyroStart = HAL_GetTick();
+		}
 		ServoWriteS2(90);
 	}
 	#else
