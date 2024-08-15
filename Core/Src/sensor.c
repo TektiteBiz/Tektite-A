@@ -114,7 +114,15 @@ void ServoWriteS1(float angle) {
 	htim2.Instance->CCR1 = (int)(angle/120.0f * (float)(config.s1max-config.s1min)) + config.s1min;
 }
 void ServoWriteS2(float angle) {
+	#ifdef LANDING // In landing mode S2 is pyro channel
+	if (angle > 45.0f) {
+		htim2.Instance->CCR2 = 1000;
+	} else {
+		htim2.Instance->CCR2 = 0;
+	}
+	#else
 	htim2.Instance->CCR2 = (int)(angle/120.0f * (float)(config.s2max-config.s2min)) + config.s2min;
+	#endif
 }
 void ServoWriteS3(float angle) {
 	htim2.Instance->CCR3 = (int)(angle/120.0f * (float)(config.s3max-config.s3min)) + config.s3min;

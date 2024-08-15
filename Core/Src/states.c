@@ -59,7 +59,11 @@ void StandbyUpdate() {
 		int val = (noDetachUntil - HAL_GetTick())/2;
 		LEDWrite(val, val, val);
 	} else if (battVoltage < 5.1) { // Powered off of USB
+		#ifdef LANDING
+			LEDWrite(32, 0, 0); // Red for landing rocket mode
+		#else
 			LEDWrite(32, 32, 32); // White for USB
+		#endif
 	} else if (battVoltage < 7.4) {
 		LEDWrite(0, 0, 128); // Blue for low battery
 	} else {
@@ -236,6 +240,10 @@ void ControlUpdate() {
 		sampleCount = 0;
 	}
 
+	#ifdef LANDING // Need pyro channel disabled on ascent when in landing mode
+	ServoWriteS2(0);
+	#endif
+
 	if (config.control) {
 		float ang = state.servo + config.P*(state.pre - target);
 		if (ang < 0.0f) {
@@ -244,12 +252,16 @@ void ControlUpdate() {
 			ang = 90.0f;
 		}
 		ServoWriteS1(ang);
+		#ifndef LANDING
 		ServoWriteS2(ang);
+		#endif
 		ServoWriteS3(ang);
 		state.servo = ang;
 	} else {
 		ServoWriteS1(config.param);
+		#ifndef LANDING
 		ServoWriteS2(config.param);
+		#endif
 		ServoWriteS3(config.param);
 		state.servo = config.param;
 	}
@@ -274,6 +286,19 @@ void DescentUpdate() {
 
 	state.servo = 0;
 
+	#ifdef LANDING
+	// Servo output 2 used for pyro channel
+	uint32_t pyroStart = 0;
+	if (state.vz > -55 && state.alt > 70) {
+		ServoWriteS1(0);
+		ServoWriteS2(0);
+		ServoWriteS3(0);
+	} else if (HAL_GetTick() - pyroStart > 1000 && pyroStart != 0) {
+		ServoDetach();
+	} else { // Fire pyro channel
+		ServoWriteS2(90);
+	}
+	#else
 	if (state.alt > 50) { // Make canards vertical
 		ServoWriteS1(0);
 		ServoWriteS2(0);
@@ -290,6 +315,7 @@ void DescentUpdate() {
 		battVoltage = BattVoltage();
 		return;
 	}
+	#endif
 }
 
 void StateUpdate() {

@@ -18,6 +18,7 @@
 #include "spif.h"
 #include "filter.h"
 
+//#define LANDING 1
 
 void LEDWrite(int r, int g, int b);
 void Error(char* err);
