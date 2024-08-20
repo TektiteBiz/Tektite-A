@@ -139,11 +139,10 @@ void SensorInit() {
 	LEDInit();
 	LEDWrite(128, 128, 128); // Initialize phase
 
+	//ServoInit();
 	BMP280Init();
 	BMI088Init();
 	SPIFInit();
-	ServoInit();
-
 	LoadConfig();
 
 	LEDWrite(0, 0, 0);
