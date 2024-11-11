@@ -248,6 +248,18 @@ void ControlUpdate() {
 	ServoWriteS2(0);
 	#endif
 
+	/*int incr = (int)((GetTime() - config.starttime) / 400);
+	float ang = (float)incr * 10.0f;
+	if (ang > 90.0f) {
+		ang = 90.0f;
+	} else if (ang < 0.0f) {
+		ang = 0.0f;
+	}
+	ServoWriteS1(90.0f - ang);
+	ServoWriteS2(90.0f - ang);
+	ServoWriteS3(90.0f - ang);
+	state.servo = 90.0f - ang;*/
+
 	if (config.control) {
 		float ang = state.servo + config.P*(state.pre - target);
 		if (ang < 0.0f) {
